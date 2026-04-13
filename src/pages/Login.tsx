@@ -86,7 +86,7 @@ const Login = () => {
             <div className="w-16 h-16 rounded-full gradient-primary flex items-center justify-center mb-4">
               <Utensils className="h-8 w-8 text-primary-foreground" />
             </div>
-            <h1 className="text-2xl font-bold text-foreground">NUTRITION HAI ZARURI</h1>
+            <h1 className="text-2xl font-bold text-foreground">DR. MALIKA KABRA RATHI - NUTRITION CLINIC</h1>
             <p className="text-muted-foreground text-sm mt-1">Internal Team Dashboard</p>
           </div>
 
@@ -144,7 +144,7 @@ const Login = () => {
         </Card>
 
         <p className="text-center text-xs text-muted-foreground mt-6">
-          © 2026 Nutrition Hai Zaruri. All rights reserved.
+          © 2026 Dr. Malika Kabra Rathi. All rights reserved.
         </p>
       </div>
     </div>

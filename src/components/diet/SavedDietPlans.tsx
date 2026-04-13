@@ -316,7 +316,7 @@ const SavedDietPlans = () => {
   </div>` : ''}
 
   <div class="footer">
-    <p>© 2026 Nutrition Hai Zaruri - Personalized Diet Plan</p>
+    <p>© 2026 Dr. Malika Kabra Rathi - Personalized Nutrition Plan</p>
   </div>
 </body>
 </html>`;
