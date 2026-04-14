@@ -91,7 +91,7 @@ export const AIDietPlanGenerator = ({ clients, editModeData, onClose }: Props) =
   const [editValue, setEditValue] = useState('');
   const [editingField, setEditingField] = useState<string | null>(null);
   const [editFieldValue, setEditFieldValue] = useState('');
-  const [editingGroceryCategory, setEditingGroceryCategory] = useState<{ catIdx: number; value: string } | null>(null);
+  const [editingGroceryCategory, setEditingGroceryCategory] = useState<{ catIdx: number; field: 'category' | 'items' } | null>(null);
   const [groceryEditValue, setGroceryEditValue] = useState('');
   const [showClearConfirmation, setShowClearConfirmation] = useState(false);
   const [editingImportantNotes, setEditingImportantNotes] = useState(false);

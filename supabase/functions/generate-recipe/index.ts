@@ -59,10 +59,10 @@ Focus on:
 - Practical tips for best results
 - Accurate nutrition estimates`;
 
-    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
   method: "POST",
   headers: {
-    Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+    Authorization: `Bearer ${LOVABLE_API_KEY}`,
     "Content-Type": "application/json",
   },
   body: JSON.stringify({
