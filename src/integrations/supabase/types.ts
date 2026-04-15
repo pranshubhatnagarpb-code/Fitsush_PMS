@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.1"
+    PostgrestVersion: "14.5"
   }
   public: {
     Tables: {
@@ -58,6 +58,185 @@ export type Database = {
           },
         ]
       }
+      client_blood_reports: {
+        Row: {
+          client_id: string
+          created_at: string
+          extracted_data: Json
+          id: string
+          notes: string | null
+          report_date: string
+          report_title: string
+          updated_at: string
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          extracted_data?: Json
+          id?: string
+          notes?: string | null
+          report_date?: string
+          report_title?: string
+          updated_at?: string
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          extracted_data?: Json
+          id?: string
+          notes?: string | null
+          report_date?: string
+          report_title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_blood_reports_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      client_feedback: {
+        Row: {
+          client_id: string
+          created_at: string
+          feedback_by: string
+          feedback_text: string
+          feedback_type: string
+          id: string
+          is_visible_to_client: boolean
+          updated_at: string
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          feedback_by: string
+          feedback_text: string
+          feedback_type?: string
+          id?: string
+          is_visible_to_client?: boolean
+          updated_at?: string
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          feedback_by?: string
+          feedback_text?: string
+          feedback_type?: string
+          id?: string
+          is_visible_to_client?: boolean
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_feedback_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      client_measurements: {
+        Row: {
+          arm_cm: number | null
+          bmi: number | null
+          body_fat_pct: number | null
+          chest_cm: number | null
+          client_id: string
+          created_at: string
+          hip_cm: number | null
+          id: string
+          measurement_date: string
+          muscle_mass_kg: number | null
+          notes: string | null
+          thigh_cm: number | null
+          updated_at: string
+          waist_cm: number | null
+          weight_kg: number | null
+        }
+        Insert: {
+          arm_cm?: number | null
+          bmi?: number | null
+          body_fat_pct?: number | null
+          chest_cm?: number | null
+          client_id: string
+          created_at?: string
+          hip_cm?: number | null
+          id?: string
+          measurement_date?: string
+          muscle_mass_kg?: number | null
+          notes?: string | null
+          thigh_cm?: number | null
+          updated_at?: string
+          waist_cm?: number | null
+          weight_kg?: number | null
+        }
+        Update: {
+          arm_cm?: number | null
+          bmi?: number | null
+          body_fat_pct?: number | null
+          chest_cm?: number | null
+          client_id?: string
+          created_at?: string
+          hip_cm?: number | null
+          id?: string
+          measurement_date?: string
+          muscle_mass_kg?: number | null
+          notes?: string | null
+          thigh_cm?: number | null
+          updated_at?: string
+          waist_cm?: number | null
+          weight_kg?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_measurements_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      client_portal_users: {
+        Row: {
+          client_id: string
+          created_at: string
+          id: string
+          is_active: boolean
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_portal_users_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: true
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clients: {
         Row: {
           address: string | null
@@ -77,9 +256,11 @@ export type Database = {
           name: string
           notes: string | null
           phone: string | null
+          portal_access_enabled: boolean
           service_duration_months: number | null
           service_start_date: string | null
           skin_type: string | null
+          supplements: string | null
           total_fees: number | null
           total_receivables: number | null
           updated_at: string
@@ -103,9 +284,11 @@ export type Database = {
           name: string
           notes?: string | null
           phone?: string | null
+          portal_access_enabled?: boolean
           service_duration_months?: number | null
           service_start_date?: string | null
           skin_type?: string | null
+          supplements?: string | null
           total_fees?: number | null
           total_receivables?: number | null
           updated_at?: string
@@ -129,9 +312,11 @@ export type Database = {
           name?: string
           notes?: string | null
           phone?: string | null
+          portal_access_enabled?: boolean
           service_duration_months?: number | null
           service_start_date?: string | null
           skin_type?: string | null
+          supplements?: string | null
           total_fees?: number | null
           total_receivables?: number | null
           updated_at?: string
@@ -485,7 +670,8 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_portal_client_id: { Args: never; Returns: string }
+      is_portal_client: { Args: never; Returns: boolean }
     }
     Enums: {
       [_ in never]: never

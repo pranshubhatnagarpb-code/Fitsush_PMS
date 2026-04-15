@@ -51,6 +51,7 @@ interface ClientFormData {
   total_receivables: string;
   notes: string;
   is_active: boolean;
+  portal_access_enabled: boolean;
   service_start_date: string;
   service_duration_months: string;
   number_of_diet_charts: string;
@@ -77,6 +78,7 @@ const emptyFormData: ClientFormData = {
   total_receivables: '',
   notes: '',
   is_active: true,
+  portal_access_enabled: false,
   service_start_date: '',
   service_duration_months: '',
   number_of_diet_charts: '',
@@ -119,6 +121,7 @@ export const ClientFormDialog = ({ open, onOpenChange, client, onSubmit, isLoadi
         total_receivables: client.total_receivables?.toString() || '',
         notes: client.notes || '',
         is_active: client.is_active ?? true,
+        portal_access_enabled: client.portal_access_enabled ?? false,
         service_start_date: client.service_start_date || '',
         service_duration_months: client.service_duration_months?.toString() || '',
         number_of_diet_charts: (client as any).number_of_diet_charts?.toString() || '',
@@ -199,6 +202,7 @@ export const ClientFormDialog = ({ open, onOpenChange, client, onSubmit, isLoadi
       total_receivables: formData.total_receivables ? parseFloat(formData.total_receivables) : 0,
       notes: formData.notes.trim() || null,
       is_active: formData.is_active,
+      portal_access_enabled: formData.portal_access_enabled,
       service_start_date: formData.service_start_date || null,
       service_duration_months: formData.service_duration_months ? parseInt(formData.service_duration_months) : null,
       number_of_diet_charts: formData.number_of_diet_charts ? parseInt(formData.number_of_diet_charts) : null,
@@ -532,6 +536,15 @@ export const ClientFormDialog = ({ open, onOpenChange, client, onSubmit, isLoadi
                 onCheckedChange={(checked) => setFormData({ ...formData, is_active: checked })}
               />
               <Label htmlFor="active">Active Client</Label>
+            </div>
+            <div className="flex items-center space-x-2">
+              <Switch
+                id="portal_access"
+                checked={formData.portal_access_enabled}
+                onCheckedChange={(checked) => setFormData({ ...formData, portal_access_enabled: checked })}
+              />
+              <Label htmlFor="portal_access">Enable Portal Access</Label>
+              <span className="text-xs text-muted-foreground">(Allow client to log in to their portal)</span>
             </div>
           </div>
 
