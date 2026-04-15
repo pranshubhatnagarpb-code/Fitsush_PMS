@@ -51,6 +51,7 @@ interface ClientFormData {
   total_receivables: string;
   notes: string;
   is_active: boolean;
+  portal_access_enabled: boolean;
   service_start_date: string;
   service_duration_months: string;
   number_of_diet_charts: string;
@@ -77,6 +78,7 @@ const emptyFormData: ClientFormData = {
   total_receivables: '',
   notes: '',
   is_active: true,
+  portal_access_enabled: false,
   service_start_date: '',
   service_duration_months: '',
   number_of_diet_charts: '',
