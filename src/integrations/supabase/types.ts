@@ -255,6 +255,7 @@ export type Database = {
           is_active: boolean | null
           name: string
           notes: string | null
+          number_of_diet_charts: number | null
           phone: string | null
           portal_access_enabled: boolean
           service_duration_months: number | null
@@ -283,6 +284,7 @@ export type Database = {
           is_active?: boolean | null
           name: string
           notes?: string | null
+          number_of_diet_charts?: number | null
           phone?: string | null
           portal_access_enabled?: boolean
           service_duration_months?: number | null
@@ -311,6 +313,7 @@ export type Database = {
           is_active?: boolean | null
           name?: string
           notes?: string | null
+          number_of_diet_charts?: number | null
           phone?: string | null
           portal_access_enabled?: boolean
           service_duration_months?: number | null
