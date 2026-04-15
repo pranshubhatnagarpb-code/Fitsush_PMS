@@ -121,6 +121,7 @@ export const ClientFormDialog = ({ open, onOpenChange, client, onSubmit, isLoadi
         total_receivables: client.total_receivables?.toString() || '',
         notes: client.notes || '',
         is_active: client.is_active ?? true,
+        portal_access_enabled: client.portal_access_enabled ?? false,
         service_start_date: client.service_start_date || '',
         service_duration_months: client.service_duration_months?.toString() || '',
         number_of_diet_charts: (client as any).number_of_diet_charts?.toString() || '',
