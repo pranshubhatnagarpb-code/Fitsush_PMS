@@ -18,40 +18,67 @@ interface ClientDetails {
   dietPreference: 'vegetarian' | 'non-vegetarian' | 'both';
 }
 
-const getDayGroupings = (numberOfDays: number) => {
-  if (numberOfDays <= 1) return [{ label: "Monday", days: ["Monday"] }];
-  if (numberOfDays === 2) return [
-    { label: "Monday", days: ["Monday"] },
-    { label: "Tuesday", days: ["Tuesday"] },
-  ];
-  if (numberOfDays === 3) return [
-    { label: "Monday", days: ["Monday"] },
-    { label: "Tuesday", days: ["Tuesday"] },
-    { label: "Wednesday", days: ["Wednesday"] },
-  ];
-  if (numberOfDays === 4) return [
-    { label: "Monday & Thursday", days: ["Monday", "Thursday"] },
-    { label: "Tuesday", days: ["Tuesday"] },
-    { label: "Wednesday", days: ["Wednesday"] },
-    { label: "Friday", days: ["Friday"] },
-  ];
-  if (numberOfDays === 5) return [
-    { label: "Monday & Thursday", days: ["Monday", "Thursday"] },
-    { label: "Tuesday & Friday", days: ["Tuesday", "Friday"] },
-    { label: "Wednesday", days: ["Wednesday"] },
-  ];
-  if (numberOfDays === 6) return [
-    { label: "Monday & Thursday", days: ["Monday", "Thursday"] },
-    { label: "Tuesday & Friday", days: ["Tuesday", "Friday"] },
-    { label: "Wednesday & Saturday", days: ["Wednesday", "Saturday"] },
-  ];
-  // 7 days (full week)
-  return [
-    { label: "Monday & Thursday", days: ["Monday", "Thursday"] },
-    { label: "Tuesday & Friday", days: ["Tuesday", "Friday"] },
-    { label: "Wednesday & Saturday", days: ["Wednesday", "Saturday"] },
-    { label: "Sunday", days: ["Sunday"] },
-  ];
+const getDayGroupings = (numberOfDays: number, startDate: string) => {
+  const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  const start = new Date(startDate);
+  const dayGroups: Array<{ dayName: string; date: string; fullDate: string }> = [];
+  
+  for (let i = 0; i < numberOfDays; i++) {
+    const currentDate = new Date(start);
+    currentDate.setDate(start.getDate() + i);
+    const dayName = days[currentDate.getDay()];
+    const dateStr = currentDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    
+    dayGroups.push({
+      dayName,
+      date: dateStr,
+      fullDate: currentDate.toISOString().split('T')[0]
+    });
+  }
+  
+  // Pair days for common diet plans
+  const pairedGroups: Array<{ label: string; dates: string; days: typeof dayGroups }> = [];
+  const used = new Set<number>();
+  
+  for (let i = 0; i < dayGroups.length; i++) {
+    if (used.has(i)) continue;
+    
+    const current = dayGroups[i];
+    let pair: typeof dayGroups[0] | null = null;
+    
+    for (let j = i + 1; j < dayGroups.length; j++) {
+      if (used.has(j)) continue;
+      
+      const nextDay = dayGroups[j];
+      if ((current.dayName === 'Monday' && nextDay.dayName === 'Thursday') ||
+          (current.dayName === 'Tuesday' && nextDay.dayName === 'Friday') ||
+          (current.dayName === 'Wednesday' && nextDay.dayName === 'Saturday') ||
+          (current.dayName === 'Thursday' && nextDay.dayName === 'Monday') ||
+          (current.dayName === 'Friday' && nextDay.dayName === 'Tuesday') ||
+          (current.dayName === 'Saturday' && nextDay.dayName === 'Wednesday')) {
+        pair = nextDay;
+        used.add(j);
+        break;
+      }
+    }
+    
+    if (pair) {
+      pairedGroups.push({
+        label: `${current.dayName} & ${pair.dayName}`,
+        dates: `${current.date} & ${pair.date}`,
+        days: [current, pair]
+      });
+    } else {
+      pairedGroups.push({
+        label: current.dayName,
+        dates: current.date,
+        days: [current]
+      });
+    }
+    used.add(i);
+  }
+  
+  return pairedGroups;
 };
 
 serve(async (req) => {
@@ -60,7 +87,7 @@ serve(async (req) => {
   }
 
   try {
-    const { clientDetails, customPrompt, numberOfDays = 7 }: { clientDetails: ClientDetails; customPrompt?: string; numberOfDays?: number } = await req.json();
+    const { clientDetails, customPrompt, numberOfDays = 7, startDate }: { clientDetails: ClientDetails; customPrompt?: string; numberOfDays?: number; startDate?: string } = await req.json();
     
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
@@ -73,12 +100,14 @@ serve(async (req) => {
       maintain: "weight maintenance"
     }[clientDetails.goal];
 
-    const dayGroups = getDayGroupings(numberOfDays);
-    const groupDescriptions = dayGroups.map((g, i) => `- Group ${i + 1}: ${g.label} (same meals for paired days)`).join('\n');
+    const effectiveStartDate = startDate || new Date().toISOString().split('T')[0];
+    const dayGroups = getDayGroupings(numberOfDays, effectiveStartDate);
+    const groupDescriptions = dayGroups.map((g, i) => `- Group ${i + 1}: ${g.label} (${g.dates})`).join('\n');
     const groupJsonExamples = dayGroups.map((g, i) => {
-      if (i === 0) {
-        return `    {
+      return `    {
       "label": "${g.label}",
+      "dates": "${g.dates}",
+      "editable": true,
       "meals": [
         { "period": "Upon waking up", "time": "7:00 AM", "foodPlan": "Specific food with quantities", "alternative": "Alternative option with quantities", "notes": "Preparation notes" },
         { "period": "Mid Morning", "time": "9:00 AM", "foodPlan": "...", "alternative": "...", "notes": "..." },
@@ -89,8 +118,6 @@ serve(async (req) => {
         { "period": "Bedtime", "time": "9:30 PM", "foodPlan": "...", "alternative": "...", "notes": "" }
       ]
     }`;
-      }
-      return `    { "label": "${g.label}", "meals": [...] }`;
     }).join(',\n');
 
     const systemPrompt = `You are an expert Indian nutritionist and dietitian specializing in holistic nutrition. Create a detailed, time-based food plan with authentic Indian meals.
@@ -105,6 +132,8 @@ Your response must be a valid JSON object with exactly this structure:
   "planName": "Food Plan for [Client Name]",
   "introMessage": "A personalized 2-3 sentence message about the food plan.",
   "affirmations": ["3 positive health affirmations"],
+  "startDate": "${effectiveStartDate}",
+  "editable": true,
   "dayGroups": [
 ${groupJsonExamples}
   ],
@@ -169,7 +198,7 @@ Focus on:
 ${clientDetails.healthConditions.length > 0 ? clientDetails.healthConditions.join(', ') : 'None specified'}
 ${customPrompt ? `\n**Additional Instructions from Nutritionist:**\n${customPrompt}` : ''}
 
-Create a comprehensive food plan covering ${numberOfDays} days with day-groups (${groupLabels}), each having unique meals. Include oil guidelines and important dietary notes.`;
+Create a comprehensive food plan covering ${numberOfDays} days starting from ${effectiveStartDate} with day-groups (${groupLabels}), each having unique meals. Include oil guidelines and important dietary notes.`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
