@@ -26,6 +26,7 @@ export interface Client {
   service_start_date: string | null;
   service_duration_months: number | null;
   employee_id: string | null;
+  portal_access_enabled: boolean;
   created_at: string;
   updated_at: string;
 }
