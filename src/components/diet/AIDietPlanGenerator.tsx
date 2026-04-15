@@ -413,16 +413,19 @@ export const AIDietPlanGenerator = ({ clients, editModeData, onClose }: Props) =
         numberOfDays: parseInt(numberOfDays)
       });
       
-      const response = await fetch('/api/diet-plan', {
+      const { data: { session } } = await supabase.auth.getSession();
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-diet-plan`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
         },
         body: JSON.stringify({ 
           clientDetails, 
           customPrompt: customPrompt.trim() || undefined, 
           numberOfDays: parseInt(numberOfDays),
-          startDate: startDateString // Send start date to backend
+          startDate: startDateString
         }),
       });
       
