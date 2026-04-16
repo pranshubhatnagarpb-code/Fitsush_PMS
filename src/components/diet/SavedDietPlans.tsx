@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Eye, Trash2, Download, Search, Calendar, User, Copy, Loader2, Edit, Check, X } from 'lucide-react';
+import { DietPlanPdfManager } from './DietPlanPdfManager';
 import { useSavedDietPlans, useDeleteDietPlan } from '@/hooks/useDietPlans';
 import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
@@ -407,10 +408,11 @@ const SavedDietPlans = () => {
                     <p className="text-sm text-muted-foreground mt-1 line-clamp-1">{plan.instructions}</p>
                   )}
                 </div>
-                <div className="flex items-center gap-2">
-                  <Button variant="outline" size="sm" onClick={() => setSelectedPlan(plan)}>
-                    <Eye className="h-4 w-4 mr-1" /> View
-                  </Button>
+                <div className="flex flex-col gap-2 items-end">
+                  <div className="flex items-center gap-2">
+                    <Button variant="outline" size="sm" onClick={() => setSelectedPlan(plan)}>
+                      <Eye className="h-4 w-4 mr-1" /> View
+                    </Button>
                   {plan.is_ai_generated && plan.ai_plan_data && (
                     <>
                       {plan.status === 'draft' && (
@@ -441,6 +443,14 @@ const SavedDietPlans = () => {
                   <Button variant="ghost" size="sm" onClick={() => handleDelete(plan.id)} className="text-destructive hover:text-destructive">
                     <Trash2 className="h-4 w-4" />
                   </Button>
+                  </div>
+                  <DietPlanPdfManager
+                    planId={plan.id}
+                    clientId={plan.client_id}
+                    pdfFilePath={(plan as any).pdf_file_path}
+                    pdfFileName={(plan as any).pdf_file_name}
+                    pdfUploadedAt={(plan as any).pdf_uploaded_at}
+                  />
                 </div>
               </div>
             </Card>
