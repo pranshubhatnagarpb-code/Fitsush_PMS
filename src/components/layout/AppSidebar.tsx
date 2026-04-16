@@ -12,6 +12,7 @@ import {
   LogOut,
   Menu,
   X,
+  Ruler,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSidebar } from './DashboardLayout';
@@ -25,6 +26,7 @@ const navItems = [
   { title: 'Appointments', icon: CalendarDays, path: '/appointments' },
   
   { title: 'Diet Section', icon: Utensils, path: '/diet-section' },
+  { title: 'Body Measurements', icon: Ruler, path: '/measurements' },
   { title: 'Bills Collection', icon: Receipt, path: '/bills' },
   { title: 'Diet Chart Templates', icon: FileText, path: '/templates' },
   { title: 'Employee', icon: UserCog, path: '/employees' },
