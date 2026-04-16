@@ -152,6 +152,7 @@ export type Database = {
           id: string
           measurement_date: string
           muscle_mass_kg: number | null
+          neck_cm: number | null
           notes: string | null
           thigh_cm: number | null
           updated_at: string
@@ -169,6 +170,7 @@ export type Database = {
           id?: string
           measurement_date?: string
           muscle_mass_kg?: number | null
+          neck_cm?: number | null
           notes?: string | null
           thigh_cm?: number | null
           updated_at?: string
@@ -186,6 +188,7 @@ export type Database = {
           id?: string
           measurement_date?: string
           muscle_mass_kg?: number | null
+          neck_cm?: number | null
           notes?: string | null
           thigh_cm?: number | null
           updated_at?: string
@@ -489,6 +492,9 @@ export type Database = {
           id: string
           instructions: string | null
           is_ai_generated: boolean | null
+          pdf_file_name: string | null
+          pdf_file_path: string | null
+          pdf_uploaded_at: string | null
           plan_name: string
           start_date: string | null
           status: string
@@ -504,6 +510,9 @@ export type Database = {
           id?: string
           instructions?: string | null
           is_ai_generated?: boolean | null
+          pdf_file_name?: string | null
+          pdf_file_path?: string | null
+          pdf_uploaded_at?: string | null
           plan_name: string
           start_date?: string | null
           status?: string
@@ -519,6 +528,9 @@ export type Database = {
           id?: string
           instructions?: string | null
           is_ai_generated?: boolean | null
+          pdf_file_name?: string | null
+          pdf_file_path?: string | null
+          pdf_uploaded_at?: string | null
           plan_name?: string
           start_date?: string | null
           status?: string
