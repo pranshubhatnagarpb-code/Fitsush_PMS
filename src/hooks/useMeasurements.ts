@@ -6,16 +6,16 @@ export interface Measurement {
   id: string;
   client_id: string;
   measurement_date: string;
-  weight_kg: number | null;
   bmi: number | null;
-  body_fat_pct: number | null;
-  waist_cm: number | null;
-  hip_cm: number | null;
-  chest_cm: number | null;
-  arm_cm: number | null;
-  thigh_cm: number | null;
-  neck_cm: number | null;
-  muscle_mass_kg: number | null;
+  weight: number | null;
+  body_fat_percentage: number | null;
+  waist: number | null;
+  hip: number | null;
+  chest: number | null;
+  thigh: number | null;
+  arm: number | null;
+  neck: number | null;
+  measurement_notes: string | null;
   notes: string | null;
   created_at: string;
   updated_at: string;
@@ -24,17 +24,16 @@ export interface Measurement {
 export interface MeasurementInput {
   client_id: string;
   measurement_date: string;
-  weight_kg?: number | null;
   bmi?: number | null;
-  body_fat_pct?: number | null;
-  waist_cm?: number | null;
-  hip_cm?: number | null;
-  chest_cm?: number | null;
-  arm_cm?: number | null;
-  thigh_cm?: number | null;
-  neck_cm?: number | null;
-  muscle_mass_kg?: number | null;
-  notes?: string | null;
+  weight?: number | null;
+  body_fat_percentage?: number | null;
+  waist?: number | null;
+  hip?: number | null;
+  chest?: number | null;
+  thigh?: number | null;
+  arm?: number | null;
+  neck?: number | null;
+  measurement_notes?: string | null;
 }
 
 export const useClientMeasurements = (clientId: string | undefined) => {
@@ -48,7 +47,7 @@ export const useClientMeasurements = (clientId: string | undefined) => {
         .eq('client_id', clientId)
         .order('measurement_date', { ascending: false });
       if (error) throw error;
-      return data as Measurement[];
+      return data as unknown as Measurement[];
     },
     enabled: !!clientId,
   });
@@ -60,7 +59,7 @@ export const useCreateMeasurement = () => {
     mutationFn: async (input: MeasurementInput) => {
       const { data, error } = await supabase
         .from('client_measurements')
-        .insert(input)
+        .insert(input as any)
         .select()
         .single();
       if (error) throw error;
