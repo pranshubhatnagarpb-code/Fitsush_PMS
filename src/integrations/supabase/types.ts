@@ -99,6 +99,57 @@ export type Database = {
           },
         ]
       }
+      client_diet_plan_files: {
+        Row: {
+          client_id: string
+          created_at: string
+          diet_plan_id: string | null
+          file_name: string
+          file_path: string
+          file_size: number | null
+          id: string
+          mime_type: string | null
+          uploaded_by: string | null
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          diet_plan_id?: string | null
+          file_name: string
+          file_path: string
+          file_size?: number | null
+          id?: string
+          mime_type?: string | null
+          uploaded_by?: string | null
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          diet_plan_id?: string | null
+          file_name?: string
+          file_path?: string
+          file_size?: number | null
+          id?: string
+          mime_type?: string | null
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_diet_plan_files_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_diet_plan_files_diet_plan_id_fkey"
+            columns: ["diet_plan_id"]
+            isOneToOne: false
+            referencedRelation: "diet_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       client_feedback: {
         Row: {
           client_id: string
@@ -142,57 +193,84 @@ export type Database = {
       }
       client_measurements: {
         Row: {
+          arm: number | null
           arm_cm: number | null
           bmi: number | null
           body_fat_pct: number | null
+          body_fat_percentage: number | null
+          chest: number | null
           chest_cm: number | null
           client_id: string
           created_at: string
+          hip: number | null
           hip_cm: number | null
           id: string
           measurement_date: string
+          measurement_notes: string | null
           muscle_mass_kg: number | null
+          neck: number | null
           neck_cm: number | null
           notes: string | null
+          thigh: number | null
           thigh_cm: number | null
           updated_at: string
+          waist: number | null
           waist_cm: number | null
+          weight: number | null
           weight_kg: number | null
         }
         Insert: {
+          arm?: number | null
           arm_cm?: number | null
           bmi?: number | null
           body_fat_pct?: number | null
+          body_fat_percentage?: number | null
+          chest?: number | null
           chest_cm?: number | null
           client_id: string
           created_at?: string
+          hip?: number | null
           hip_cm?: number | null
           id?: string
           measurement_date?: string
+          measurement_notes?: string | null
           muscle_mass_kg?: number | null
+          neck?: number | null
           neck_cm?: number | null
           notes?: string | null
+          thigh?: number | null
           thigh_cm?: number | null
           updated_at?: string
+          waist?: number | null
           waist_cm?: number | null
+          weight?: number | null
           weight_kg?: number | null
         }
         Update: {
+          arm?: number | null
           arm_cm?: number | null
           bmi?: number | null
           body_fat_pct?: number | null
+          body_fat_percentage?: number | null
+          chest?: number | null
           chest_cm?: number | null
           client_id?: string
           created_at?: string
+          hip?: number | null
           hip_cm?: number | null
           id?: string
           measurement_date?: string
+          measurement_notes?: string | null
           muscle_mass_kg?: number | null
+          neck?: number | null
           neck_cm?: number | null
           notes?: string | null
+          thigh?: number | null
           thigh_cm?: number | null
           updated_at?: string
+          waist?: number | null
           waist_cm?: number | null
+          weight?: number | null
           weight_kg?: number | null
         }
         Relationships: [
