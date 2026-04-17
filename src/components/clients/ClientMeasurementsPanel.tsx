@@ -7,7 +7,12 @@ import { Textarea } from '@/components/ui/textarea';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Plus, Trash2 } from 'lucide-react';
-import { useClientMeasurements, useCreateMeasurement, useDeleteMeasurement, MeasurementInput } from '@/hooks/useMeasurements';
+import {
+  useClientMeasurements,
+  useCreateMeasurement,
+  useDeleteMeasurement,
+  MeasurementInput,
+} from '@/hooks/useMeasurements';
 import { format } from 'date-fns';
 
 interface Props {
@@ -17,17 +22,16 @@ interface Props {
 
 const emptyForm = (): Omit<MeasurementInput, 'client_id'> => ({
   measurement_date: new Date().toISOString().split('T')[0],
-  weight_kg: null,
+  weight: null,
   bmi: null,
-  body_fat_pct: null,
-  waist_cm: null,
-  hip_cm: null,
-  chest_cm: null,
-  arm_cm: null,
-  thigh_cm: null,
-  neck_cm: null,
-  muscle_mass_kg: null,
-  notes: null,
+  body_fat_percentage: null,
+  waist: null,
+  hip: null,
+  chest: null,
+  arm: null,
+  thigh: null,
+  neck: null,
+  measurement_notes: null,
 });
 
 export const ClientMeasurementsPanel = ({ clientId, clientName }: Props) => {
@@ -43,8 +47,10 @@ export const ClientMeasurementsPanel = ({ clientId, clientName }: Props) => {
       <Input
         type="number"
         step="0.1"
-        value={form[key] ?? ''}
-        onChange={(e) => setForm({ ...form, [key]: e.target.value ? parseFloat(e.target.value) : null })}
+        value={(form[key] as any) ?? ''}
+        onChange={(e) =>
+          setForm({ ...form, [key]: e.target.value ? parseFloat(e.target.value) : null })
+        }
         placeholder="-"
       />
     </div>
@@ -60,7 +66,13 @@ export const ClientMeasurementsPanel = ({ clientId, clientName }: Props) => {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h3 className="font-semibold text-foreground">Body Measurements — {clientName}</h3>
-        <Button size="sm" onClick={() => { setForm(emptyForm()); setDialogOpen(true); }}>
+        <Button
+          size="sm"
+          onClick={() => {
+            setForm(emptyForm());
+            setDialogOpen(true);
+          }}
+        >
           <Plus className="h-4 w-4 mr-1" /> Add Measurement
         </Button>
       </div>
@@ -70,14 +82,16 @@ export const ClientMeasurementsPanel = ({ clientId, clientName }: Props) => {
           <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" />
         </div>
       ) : measurements.length === 0 ? (
-        <Card className="p-8 text-center text-muted-foreground">No measurements recorded yet.</Card>
+        <Card className="p-8 text-center text-muted-foreground">
+          No measurements recorded yet.
+        </Card>
       ) : (
         <div className="overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>Date</TableHead>
-                <TableHead>Weight (kg)</TableHead>
+                <TableHead>Weight</TableHead>
                 <TableHead>BMI</TableHead>
                 <TableHead>Body Fat %</TableHead>
                 <TableHead>Waist</TableHead>
@@ -86,7 +100,6 @@ export const ClientMeasurementsPanel = ({ clientId, clientName }: Props) => {
                 <TableHead>Arm</TableHead>
                 <TableHead>Thigh</TableHead>
                 <TableHead>Neck</TableHead>
-                <TableHead>Muscle (kg)</TableHead>
                 <TableHead>Notes</TableHead>
                 <TableHead></TableHead>
               </TableRow>
@@ -94,22 +107,31 @@ export const ClientMeasurementsPanel = ({ clientId, clientName }: Props) => {
             <TableBody>
               {measurements.map((m) => (
                 <TableRow key={m.id}>
-                  <TableCell className="font-medium whitespace-nowrap">{format(new Date(m.measurement_date), 'dd MMM yyyy')}</TableCell>
-                  <TableCell>{m.weight_kg ?? '-'}</TableCell>
+                  <TableCell className="font-medium whitespace-nowrap">
+                    {format(new Date(m.measurement_date), 'dd MMM yyyy')}
+                  </TableCell>
+                  <TableCell>{m.weight ?? '-'}</TableCell>
                   <TableCell>{m.bmi ?? '-'}</TableCell>
-                  <TableCell>{m.body_fat_pct ?? '-'}</TableCell>
-                  <TableCell>{m.waist_cm ?? '-'}</TableCell>
-                  <TableCell>{m.hip_cm ?? '-'}</TableCell>
-                  <TableCell>{m.chest_cm ?? '-'}</TableCell>
-                  <TableCell>{m.arm_cm ?? '-'}</TableCell>
-                  <TableCell>{m.thigh_cm ?? '-'}</TableCell>
-                  <TableCell>{(m as any).neck_cm ?? '-'}</TableCell>
-                  <TableCell>{m.muscle_mass_kg ?? '-'}</TableCell>
-                  <TableCell className="max-w-[120px] truncate">{m.notes ?? '-'}</TableCell>
+                  <TableCell>{m.body_fat_percentage ?? '-'}</TableCell>
+                  <TableCell>{m.waist ?? '-'}</TableCell>
+                  <TableCell>{m.hip ?? '-'}</TableCell>
+                  <TableCell>{m.chest ?? '-'}</TableCell>
+                  <TableCell>{m.arm ?? '-'}</TableCell>
+                  <TableCell>{m.thigh ?? '-'}</TableCell>
+                  <TableCell>{m.neck ?? '-'}</TableCell>
+                  <TableCell className="max-w-[160px] truncate">
+                    {m.measurement_notes ?? m.notes ?? '-'}
+                  </TableCell>
                   <TableCell>
-                    <Button variant="ghost" size="sm" className="text-destructive" onClick={() => {
-                      if (confirm('Delete this measurement?')) deleteMeasurement.mutate({ id: m.id, clientId });
-                    }}>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-destructive"
+                      onClick={() => {
+                        if (confirm('Delete this measurement?'))
+                          deleteMeasurement.mutate({ id: m.id, clientId });
+                      }}
+                    >
                       <Trash2 className="h-3.5 w-3.5" />
                     </Button>
                   </TableCell>
@@ -135,31 +157,34 @@ export const ClientMeasurementsPanel = ({ clientId, clientName }: Props) => {
               />
             </div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              {numField('weight_kg', 'Weight (kg)')}
+              {numField('weight', 'Weight (kg)')}
               {numField('bmi', 'BMI')}
-              {numField('body_fat_pct', 'Body Fat %')}
-              {numField('muscle_mass_kg', 'Muscle Mass (kg)')}
+              {numField('body_fat_percentage', 'Body Fat %')}
             </div>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-              {numField('waist_cm', 'Waist (cm)')}
-              {numField('hip_cm', 'Hip (cm)')}
-              {numField('chest_cm', 'Chest (cm)')}
-              {numField('arm_cm', 'Arm (cm)')}
-              {numField('thigh_cm', 'Thigh (cm)')}
-              {numField('neck_cm', 'Neck (cm)')}
+              {numField('waist', 'Waist (cm)')}
+              {numField('hip', 'Hip (cm)')}
+              {numField('chest', 'Chest (cm)')}
+              {numField('arm', 'Arm (cm)')}
+              {numField('thigh', 'Thigh (cm)')}
+              {numField('neck', 'Neck (cm)')}
             </div>
             <div className="space-y-1">
               <Label className="text-xs">Notes</Label>
               <Textarea
-                value={form.notes ?? ''}
-                onChange={(e) => setForm({ ...form, notes: e.target.value || null })}
+                value={form.measurement_notes ?? ''}
+                onChange={(e) =>
+                  setForm({ ...form, measurement_notes: e.target.value || null })
+                }
                 placeholder="Any observations..."
                 rows={2}
               />
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
+            <Button variant="outline" onClick={() => setDialogOpen(false)}>
+              Cancel
+            </Button>
             <Button onClick={handleSave} disabled={createMeasurement.isPending}>
               {createMeasurement.isPending ? 'Saving...' : 'Save'}
             </Button>
