@@ -91,7 +91,7 @@ export const EnablePortalAccessDialog = ({ open, onOpenChange, client, onSuccess
         {success ? (
           <div className="space-y-4 py-2">
             <Alert>
-              <CheckCircle2 className="h-4 w-4 text-green-600" />
+              <CheckCircle2 className="h-4 w-4 text-primary" />
               <AlertDescription>
                 <div className="space-y-1 text-sm">
                   <p className="font-medium">Portal access is now active.</p>

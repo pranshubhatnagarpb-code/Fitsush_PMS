@@ -1,7 +1,8 @@
 import { useState, useEffect, useMemo } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { DataTable } from '@/components/dashboard/DataTable';
-import { Home, ChevronRight, Plus, Pencil, Trash2, Search, X } from 'lucide-react';
+import { Home, ChevronRight, Plus, Pencil, Trash2, Search, X, KeyRound, ShieldCheck } from 'lucide-react';
+import { EnablePortalAccessDialog } from '@/components/clients/EnablePortalAccessDialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -34,6 +35,13 @@ const Clients = () => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [clientToDelete, setClientToDelete] = useState<Client | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [portalDialogOpen, setPortalDialogOpen] = useState(false);
+  const [portalClient, setPortalClient] = useState<Client | null>(null);
+
+  const openPortalDialog = (client: Client) => {
+    setPortalClient(client);
+    setPortalDialogOpen(true);
+  };
 
   const handleCreate = async (data: Omit<Client, 'id' | 'created_at' | 'updated_at'>) => {
     try {
