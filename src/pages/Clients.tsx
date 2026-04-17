@@ -1,7 +1,8 @@
 import { useState, useEffect, useMemo } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { DataTable } from '@/components/dashboard/DataTable';
-import { Home, ChevronRight, Plus, Pencil, Trash2, Search, X } from 'lucide-react';
+import { Home, ChevronRight, Plus, Pencil, Trash2, Search, X, KeyRound, ShieldCheck } from 'lucide-react';
+import { EnablePortalAccessDialog } from '@/components/clients/EnablePortalAccessDialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -34,6 +35,13 @@ const Clients = () => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [clientToDelete, setClientToDelete] = useState<Client | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [portalDialogOpen, setPortalDialogOpen] = useState(false);
+  const [portalClient, setPortalClient] = useState<Client | null>(null);
+
+  const openPortalDialog = (client: Client) => {
+    setPortalClient(client);
+    setPortalDialogOpen(true);
+  };
 
   const handleCreate = async (data: Omit<Client, 'id' | 'created_at' | 'updated_at'>) => {
     try {
@@ -195,6 +203,24 @@ const Clients = () => {
       ),
     },
     {
+      key: 'portal',
+      header: 'Portal',
+      render: (item: Client) => (
+        <Button
+          variant={item.portal_access_enabled ? 'outline' : 'secondary'}
+          size="sm"
+          onClick={() => openPortalDialog(item)}
+          title={item.portal_access_enabled ? 'Reset portal password' : 'Enable portal access & set password'}
+        >
+          {item.portal_access_enabled ? (
+            <><ShieldCheck className="h-3.5 w-3.5 mr-1 text-primary" /> Reset</>
+          ) : (
+            <><KeyRound className="h-3.5 w-3.5 mr-1" /> Enable</>
+          )}
+        </Button>
+      ),
+    },
+    {
       key: 'actions',
       header: 'Actions',
       render: (item: Client) => (
@@ -291,6 +317,13 @@ const Clients = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <EnablePortalAccessDialog
+        open={portalDialogOpen}
+        onOpenChange={(open) => { setPortalDialogOpen(open); if (!open) setPortalClient(null); }}
+        client={portalClient}
+        onSuccess={() => queryClient.invalidateQueries({ queryKey: ['clients'] })}
+      />
     </DashboardLayout>
   );
 };
