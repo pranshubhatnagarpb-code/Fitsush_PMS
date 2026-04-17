@@ -1434,8 +1434,8 @@ export const AIDietPlanGenerator = ({ clients, editModeData, onClose }: Props) =
       <div><span>Goal:</span> ${clientDetails.goal || 'Not specified'}</div>
       <div><span>Diet Preference:</span> ${clientDetails.dietPreference || 'Not specified'}</div>
       <div><span>Date:</span> ${getDateRange()}</div>
-      <div><span>Week:</span> Week ${(() => { console.log('PDF Week values:', { editableWeekNumber, aiPlanWeek: (generatedPlan as any).ai_plan_data?.editableWeekNumber, nextDietChartNumber }); return editableWeekNumber || (generatedPlan as any).ai_plan_data?.editableWeekNumber || nextDietChartNumber; })()}</div>
-      <div><span>Duration:</span> ${(() => { console.log('PDF Day count values:', { editableDayCount }); return editableDayCount || '7'; })()} days</div>
+      <div><span>Week:</span> Week ${editableWeekNumber || nextDietChartNumber}</div>
+      <div><span>Duration:</span> ${editableDayCount || '7'} days</div>
     </div>
     ${clientDetails.healthConditions.length > 0 ? `
     <div class="health-conditions">
