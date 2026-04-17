@@ -444,13 +444,7 @@ const SavedDietPlans = () => {
                     <Trash2 className="h-4 w-4" />
                   </Button>
                   </div>
-                  <DietPlanPdfManager
-                    planId={plan.id}
-                    clientId={plan.client_id}
-                    pdfFilePath={(plan as any).pdf_file_path}
-                    pdfFileName={(plan as any).pdf_file_name}
-                    pdfUploadedAt={(plan as any).pdf_uploaded_at}
-                  />
+                  <DietPlanPdfManager planId={plan.id} clientId={plan.client_id} />
                 </div>
               </div>
             </Card>
