@@ -203,6 +203,24 @@ const Clients = () => {
       ),
     },
     {
+      key: 'portal',
+      header: 'Portal',
+      render: (item: Client) => (
+        <Button
+          variant={item.portal_access_enabled ? 'outline' : 'secondary'}
+          size="sm"
+          onClick={() => openPortalDialog(item)}
+          title={item.portal_access_enabled ? 'Reset portal password' : 'Enable portal access & set password'}
+        >
+          {item.portal_access_enabled ? (
+            <><ShieldCheck className="h-3.5 w-3.5 mr-1 text-primary" /> Reset</>
+          ) : (
+            <><KeyRound className="h-3.5 w-3.5 mr-1" /> Enable</>
+          )}
+        </Button>
+      ),
+    },
+    {
       key: 'actions',
       header: 'Actions',
       render: (item: Client) => (
