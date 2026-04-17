@@ -317,6 +317,13 @@ const Clients = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <EnablePortalAccessDialog
+        open={portalDialogOpen}
+        onOpenChange={(open) => { setPortalDialogOpen(open); if (!open) setPortalClient(null); }}
+        client={portalClient}
+        onSuccess={() => queryClient.invalidateQueries({ queryKey: ['clients'] })}
+      />
     </DashboardLayout>
   );
 };
