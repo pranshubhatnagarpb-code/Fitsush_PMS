@@ -50,6 +50,8 @@ const Templates = () => {
   const updateTemplate = useUpdateTemplate();
   const deleteTemplate = useDeleteTemplate();
 
+  const { drafts, saveDraft, getDraft, clearDraft, hasDraft } = useDraftRecovery('template');
+
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [isViewOpen, setIsViewOpen] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<DietChartTemplate | null>(null);
