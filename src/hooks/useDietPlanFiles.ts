@@ -161,3 +161,67 @@ export const getDietPlanFileSignedUrl = async (filePath: string, expiresInSecond
   if (error) throw error;
   return data.signedUrl;
 };
+
+/**
+ * Publish a diet plan: marks the plan + all its attached PDF files as
+ * client-visible. Portal clients (PWA) can only see published plans/files.
+ */
+export const usePublishDietPlan = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ planId }: { planId: string }) => {
+      const { data: userData } = await supabase.auth.getUser();
+      const now = new Date().toISOString();
+
+      const { error: planErr } = await supabase
+        .from('diet_plans')
+        .update({ is_published: true, published_at: now })
+        .eq('id', planId);
+      if (planErr) throw planErr;
+
+      const { error: filesErr } = await supabase
+        .from('client_diet_plan_files')
+        .update({ is_published: true, published_at: now, published_by: userData.user?.id ?? null })
+        .eq('diet_plan_id', planId);
+      if (filesErr) throw filesErr;
+
+      return { planId };
+    },
+    onSuccess: ({ planId }) => {
+      qc.invalidateQueries({ queryKey: ['diet_plans'] });
+      qc.invalidateQueries({ queryKey: ['client_diet_plan_files', 'plan', planId] });
+      toast.success('Diet plan published — visible in client app');
+    },
+    onError: (e: any) => toast.error('Publish failed', { description: e.message }),
+  });
+};
+
+/**
+ * Unpublish a diet plan: hides plan + all attached PDF files from the client app.
+ */
+export const useUnpublishDietPlan = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ planId }: { planId: string }) => {
+      const { error: planErr } = await supabase
+        .from('diet_plans')
+        .update({ is_published: false, published_at: null })
+        .eq('id', planId);
+      if (planErr) throw planErr;
+
+      const { error: filesErr } = await supabase
+        .from('client_diet_plan_files')
+        .update({ is_published: false, published_at: null, published_by: null })
+        .eq('diet_plan_id', planId);
+      if (filesErr) throw filesErr;
+
+      return { planId };
+    },
+    onSuccess: ({ planId }) => {
+      qc.invalidateQueries({ queryKey: ['diet_plans'] });
+      qc.invalidateQueries({ queryKey: ['client_diet_plan_files', 'plan', planId] });
+      toast.success('Diet plan unpublished — hidden from client app');
+    },
+    onError: (e: any) => toast.error('Unpublish failed', { description: e.message }),
+  });
+};
