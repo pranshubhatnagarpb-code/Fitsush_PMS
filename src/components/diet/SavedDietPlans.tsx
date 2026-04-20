@@ -459,6 +459,33 @@ const SavedDietPlans = () => {
                       </Button>
                     </>
                   )}
+                  {plan.is_published ? (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        if (confirm('Unpublish this diet chart? The client will no longer see it in the app.')) {
+                          unpublishPlan.mutate({ planId: plan.id });
+                        }
+                      }}
+                      disabled={unpublishPlan.isPending}
+                      title="Hide from client app"
+                    >
+                      {unpublishPlan.isPending ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <EyeOff className="h-4 w-4 mr-1" />}
+                      Unpublish
+                    </Button>
+                  ) : (
+                    <Button
+                      variant="default"
+                      size="sm"
+                      onClick={() => publishPlan.mutate({ planId: plan.id })}
+                      disabled={publishPlan.isPending}
+                      title="Make visible in client app"
+                    >
+                      {publishPlan.isPending ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Globe className="h-4 w-4 mr-1" />}
+                      Publish
+                    </Button>
+                  )}
                   <Button variant="outline" size="sm" onClick={() => handleDownloadPDF(plan)}>
                     <Download className="h-4 w-4" />
                   </Button>
