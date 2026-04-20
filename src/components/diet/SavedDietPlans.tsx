@@ -379,6 +379,8 @@ const SavedDietPlans = () => {
               <SelectItem value="all">All Statuses</SelectItem>
               <SelectItem value="draft">Draft</SelectItem>
               <SelectItem value="completed">Completed</SelectItem>
+              <SelectItem value="published">Published (visible to client)</SelectItem>
+              <SelectItem value="unpublished">Unpublished</SelectItem>
             </SelectContent>
           </Select>
         </div>
