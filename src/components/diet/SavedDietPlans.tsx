@@ -21,6 +21,8 @@ import { AIDietPlanGenerator } from './AIDietPlanGenerator';
 const SavedDietPlans = () => {
   const { data: plans = [], isLoading, refetch } = useSavedDietPlans();
   const deletePlan = useDeleteDietPlan();
+  const publishPlan = usePublishDietPlan();
+  const unpublishPlan = useUnpublishDietPlan();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [selectedPlan, setSelectedPlan] = useState<any>(null);
