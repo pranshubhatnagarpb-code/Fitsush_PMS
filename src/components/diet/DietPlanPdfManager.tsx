@@ -122,6 +122,15 @@ export const DietPlanPdfManager = ({ planId, clientId }: Props) => {
                 <FileText className="h-3 w-3 shrink-0" />
                 <span className="truncate">{f.file_name}</span>
               </Badge>
+              {f.is_published ? (
+                <Badge className="bg-success hover:bg-success text-success-foreground text-[10px] py-0 px-1.5">
+                  Client-visible
+                </Badge>
+              ) : (
+                <Badge variant="outline" className="text-[10px] py-0 px-1.5 text-muted-foreground">
+                  Not published
+                </Badge>
+              )}
               <span className="text-[10px] text-muted-foreground">
                 {format(new Date(f.created_at), 'dd MMM yyyy')}
               </span>
