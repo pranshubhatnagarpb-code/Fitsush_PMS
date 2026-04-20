@@ -403,7 +403,7 @@ const SavedDietPlans = () => {
                       {plan.status === 'approved' ? 'Completed' : plan.status}
                     </Badge>
                     {plan.is_published ? (
-                      <Badge className="bg-emerald-600 hover:bg-emerald-600 text-white gap-1">
+                      <Badge className="bg-success hover:bg-success text-success-foreground gap-1">
                         <Globe className="h-3 w-3" /> Published
                       </Badge>
                     ) : (
@@ -415,13 +415,13 @@ const SavedDietPlans = () => {
                       <Badge variant="outline" className="border-primary text-primary">AI Generated</Badge>
                     )}
                   </div>
-                  <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                  <div className="flex items-center gap-4 text-sm text-muted-foreground flex-wrap">
                     <span className="flex items-center gap-1"><User className="h-3.5 w-3.5" /> {plan.clients?.name || 'Unknown'}</span>
                     <span className="flex items-center gap-1"><Calendar className="h-3.5 w-3.5" /> {format(new Date(plan.created_at), 'dd MMM yyyy')}</span>
                     <span>{plan.diet_plan_days?.length || 0} days</span>
                     {plan.week_number && <span>Week {plan.week_number}</span>}
                     {plan.is_published && plan.published_at && (
-                      <span className="text-emerald-700">
+                      <span className="text-success">
                         Published {format(new Date(plan.published_at), 'dd MMM yyyy')}
                       </span>
                     )}
