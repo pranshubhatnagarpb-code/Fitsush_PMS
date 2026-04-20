@@ -12,6 +12,9 @@ export interface DietPlanFile {
   file_size: number | null;
   uploaded_by: string | null;
   created_at: string;
+  is_published?: boolean;
+  published_at?: string | null;
+  published_by?: string | null;
 }
 
 const BUCKET = 'diet-plan-pdfs';
