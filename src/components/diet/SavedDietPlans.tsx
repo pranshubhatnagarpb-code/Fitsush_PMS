@@ -397,11 +397,20 @@ const SavedDietPlans = () => {
             <Card key={plan.id} className="p-5 shadow-card hover:shadow-md transition-shadow">
               <div className="flex items-start justify-between">
                 <div className="space-y-1">
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-3 flex-wrap">
                     <h3 className="font-semibold text-foreground text-lg">{plan.plan_name}</h3>
                     <Badge variant={plan.status === 'approved' ? 'default' : 'secondary'}>
                       {plan.status === 'approved' ? 'Completed' : plan.status}
                     </Badge>
+                    {plan.is_published ? (
+                      <Badge className="bg-emerald-600 hover:bg-emerald-600 text-white gap-1">
+                        <Globe className="h-3 w-3" /> Published
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline" className="gap-1 text-muted-foreground">
+                        <EyeOff className="h-3 w-3" /> Not published
+                      </Badge>
+                    )}
                     {plan.is_ai_generated && (
                       <Badge variant="outline" className="border-primary text-primary">AI Generated</Badge>
                     )}
@@ -411,6 +420,11 @@ const SavedDietPlans = () => {
                     <span className="flex items-center gap-1"><Calendar className="h-3.5 w-3.5" /> {format(new Date(plan.created_at), 'dd MMM yyyy')}</span>
                     <span>{plan.diet_plan_days?.length || 0} days</span>
                     {plan.week_number && <span>Week {plan.week_number}</span>}
+                    {plan.is_published && plan.published_at && (
+                      <span className="text-emerald-700">
+                        Published {format(new Date(plan.published_at), 'dd MMM yyyy')}
+                      </span>
+                    )}
                   </div>
                   {plan.instructions && (
                     <p className="text-sm text-muted-foreground mt-1 line-clamp-1">{plan.instructions}</p>
