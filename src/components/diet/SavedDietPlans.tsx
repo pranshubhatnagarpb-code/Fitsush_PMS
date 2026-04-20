@@ -7,9 +7,10 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Eye, Trash2, Download, Search, Calendar, User, Copy, Loader2, Edit, Check, X } from 'lucide-react';
+import { Eye, Trash2, Download, Search, Calendar, User, Copy, Loader2, Edit, Check, X, Globe, EyeOff } from 'lucide-react';
 import { DietPlanPdfManager } from './DietPlanPdfManager';
 import { useSavedDietPlans, useDeleteDietPlan } from '@/hooks/useDietPlans';
+import { usePublishDietPlan, useUnpublishDietPlan } from '@/hooks/useDietPlanFiles';
 import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
@@ -20,6 +21,8 @@ import { AIDietPlanGenerator } from './AIDietPlanGenerator';
 const SavedDietPlans = () => {
   const { data: plans = [], isLoading, refetch } = useSavedDietPlans();
   const deletePlan = useDeleteDietPlan();
+  const publishPlan = usePublishDietPlan();
+  const unpublishPlan = useUnpublishDietPlan();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [selectedPlan, setSelectedPlan] = useState<any>(null);
@@ -76,9 +79,12 @@ const SavedDietPlans = () => {
     const matchesSearch =
       plan.plan_name?.toLowerCase().includes(search.toLowerCase()) ||
       plan.clients?.name?.toLowerCase().includes(search.toLowerCase());
-    const matchesStatus = statusFilter === 'all' || 
+    const matchesStatus =
+      statusFilter === 'all' ||
       (statusFilter === 'completed' && plan.status === 'approved') ||
-      (statusFilter === 'draft' && plan.status === 'draft');
+      (statusFilter === 'draft' && plan.status === 'draft') ||
+      (statusFilter === 'published' && plan.is_published === true) ||
+      (statusFilter === 'unpublished' && !plan.is_published);
     return matchesSearch && matchesStatus;
   });
 
@@ -373,6 +379,8 @@ const SavedDietPlans = () => {
               <SelectItem value="all">All Statuses</SelectItem>
               <SelectItem value="draft">Draft</SelectItem>
               <SelectItem value="completed">Completed</SelectItem>
+              <SelectItem value="published">Published (visible to client)</SelectItem>
+              <SelectItem value="unpublished">Unpublished</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -389,20 +397,34 @@ const SavedDietPlans = () => {
             <Card key={plan.id} className="p-5 shadow-card hover:shadow-md transition-shadow">
               <div className="flex items-start justify-between">
                 <div className="space-y-1">
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-3 flex-wrap">
                     <h3 className="font-semibold text-foreground text-lg">{plan.plan_name}</h3>
                     <Badge variant={plan.status === 'approved' ? 'default' : 'secondary'}>
                       {plan.status === 'approved' ? 'Completed' : plan.status}
                     </Badge>
+                    {plan.is_published ? (
+                      <Badge className="bg-success hover:bg-success text-success-foreground gap-1">
+                        <Globe className="h-3 w-3" /> Published
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline" className="gap-1 text-muted-foreground">
+                        <EyeOff className="h-3 w-3" /> Not published
+                      </Badge>
+                    )}
                     {plan.is_ai_generated && (
                       <Badge variant="outline" className="border-primary text-primary">AI Generated</Badge>
                     )}
                   </div>
-                  <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                  <div className="flex items-center gap-4 text-sm text-muted-foreground flex-wrap">
                     <span className="flex items-center gap-1"><User className="h-3.5 w-3.5" /> {plan.clients?.name || 'Unknown'}</span>
                     <span className="flex items-center gap-1"><Calendar className="h-3.5 w-3.5" /> {format(new Date(plan.created_at), 'dd MMM yyyy')}</span>
                     <span>{plan.diet_plan_days?.length || 0} days</span>
                     {plan.week_number && <span>Week {plan.week_number}</span>}
+                    {plan.is_published && plan.published_at && (
+                      <span className="text-success">
+                        Published {format(new Date(plan.published_at), 'dd MMM yyyy')}
+                      </span>
+                    )}
                   </div>
                   {plan.instructions && (
                     <p className="text-sm text-muted-foreground mt-1 line-clamp-1">{plan.instructions}</p>
@@ -436,6 +458,33 @@ const SavedDietPlans = () => {
                         Edit & Reuse
                       </Button>
                     </>
+                  )}
+                  {plan.is_published ? (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        if (confirm('Unpublish this diet chart? The client will no longer see it in the app.')) {
+                          unpublishPlan.mutate({ planId: plan.id });
+                        }
+                      }}
+                      disabled={unpublishPlan.isPending}
+                      title="Hide from client app"
+                    >
+                      {unpublishPlan.isPending ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <EyeOff className="h-4 w-4 mr-1" />}
+                      Unpublish
+                    </Button>
+                  ) : (
+                    <Button
+                      variant="default"
+                      size="sm"
+                      onClick={() => publishPlan.mutate({ planId: plan.id })}
+                      disabled={publishPlan.isPending}
+                      title="Make visible in client app"
+                    >
+                      {publishPlan.isPending ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Globe className="h-4 w-4 mr-1" />}
+                      Publish
+                    </Button>
                   )}
                   <Button variant="outline" size="sm" onClick={() => handleDownloadPDF(plan)}>
                     <Download className="h-4 w-4" />

@@ -108,7 +108,10 @@ export type Database = {
           file_path: string
           file_size: number | null
           id: string
+          is_published: boolean
           mime_type: string | null
+          published_at: string | null
+          published_by: string | null
           uploaded_by: string | null
         }
         Insert: {
@@ -119,7 +122,10 @@ export type Database = {
           file_path: string
           file_size?: number | null
           id?: string
+          is_published?: boolean
           mime_type?: string | null
+          published_at?: string | null
+          published_by?: string | null
           uploaded_by?: string | null
         }
         Update: {
@@ -130,7 +136,10 @@ export type Database = {
           file_path?: string
           file_size?: number | null
           id?: string
+          is_published?: boolean
           mime_type?: string | null
+          published_at?: string | null
+          published_by?: string | null
           uploaded_by?: string | null
         }
         Relationships: [
@@ -570,10 +579,12 @@ export type Database = {
           id: string
           instructions: string | null
           is_ai_generated: boolean | null
+          is_published: boolean
           pdf_file_name: string | null
           pdf_file_path: string | null
           pdf_uploaded_at: string | null
           plan_name: string
+          published_at: string | null
           start_date: string | null
           status: string
           updated_at: string
@@ -588,10 +599,12 @@ export type Database = {
           id?: string
           instructions?: string | null
           is_ai_generated?: boolean | null
+          is_published?: boolean
           pdf_file_name?: string | null
           pdf_file_path?: string | null
           pdf_uploaded_at?: string | null
           plan_name: string
+          published_at?: string | null
           start_date?: string | null
           status?: string
           updated_at?: string
@@ -606,10 +619,12 @@ export type Database = {
           id?: string
           instructions?: string | null
           is_ai_generated?: boolean | null
+          is_published?: boolean
           pdf_file_name?: string | null
           pdf_file_path?: string | null
           pdf_uploaded_at?: string | null
           plan_name?: string
+          published_at?: string | null
           start_date?: string | null
           status?: string
           updated_at?: string
