@@ -79,9 +79,12 @@ const SavedDietPlans = () => {
     const matchesSearch =
       plan.plan_name?.toLowerCase().includes(search.toLowerCase()) ||
       plan.clients?.name?.toLowerCase().includes(search.toLowerCase());
-    const matchesStatus = statusFilter === 'all' || 
+    const matchesStatus =
+      statusFilter === 'all' ||
       (statusFilter === 'completed' && plan.status === 'approved') ||
-      (statusFilter === 'draft' && plan.status === 'draft');
+      (statusFilter === 'draft' && plan.status === 'draft') ||
+      (statusFilter === 'published' && plan.is_published === true) ||
+      (statusFilter === 'unpublished' && !plan.is_published);
     return matchesSearch && matchesStatus;
   });
 
