@@ -55,6 +55,7 @@ interface MealTimeRow {
 }
 
 interface DietPlan {
+  id?: string;
   planName: string;
   introMessage: string;
   affirmations: string[];

@@ -1,4 +1,4 @@
-import { useState, useEffect, Fragment } from 'react';
+import { useState, useEffect, useRef, Fragment } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -42,6 +42,8 @@ const DEFAULT_DAY: TemplateDay = {
   ],
 };
 
+const DRAFT_KEY = 'template_form_draft';
+
 const Templates = () => {
   const { data: templates = [], isLoading } = useDietChartTemplates();
   const createTemplate = useCreateTemplate();
@@ -58,6 +60,21 @@ const Templates = () => {
   const [syncContext, setSyncContext] = useState<'edit' | 'view'>('edit');
   const [editingMealTime, setEditingMealTime] = useState<number | null>(null);
   const [mealTimeEditValue, setMealTimeEditValue] = useState('');
+  const [searchFilter, setSearchFilter] = useState('');
+
+  // Filter templates based on search
+  const filteredTemplates = templates.filter(template => {
+    if (!searchFilter) return true;
+    const searchLower = searchFilter.toLowerCase();
+    return template.name.toLowerCase().includes(searchLower) ||
+           template.description?.toLowerCase().includes(searchLower) ||
+           template.category.toLowerCase().includes(searchLower);
+  });
+  
+  // Draft recovery state
+  const [showDraftDialog, setShowDraftDialog] = useState(false);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const initialDataRef = useRef<any>(null);
 
   // Form state
   const [name, setName] = useState('');
@@ -66,6 +83,16 @@ const Templates = () => {
   const [instructions, setInstructions] = useState('');
   const [days, setDays] = useState<TemplateDay[]>([{ ...DEFAULT_DAY, meals: DEFAULT_DAY.meals.map(m => ({ ...m })) }]);
 
+  // Auto-save draft to localStorage whenever form changes (new templates only)
+  useEffect(() => {
+    if (!isEditorOpen || editingTemplate) return;
+    const hasMeaningfulData = name.trim() || description.trim() || days.some(d => d.meals.some(m => m.meal.trim()));
+    if (hasMeaningfulData) {
+      localStorage.setItem(DRAFT_KEY, JSON.stringify({ name, description, category, instructions, days }));
+      setHasUnsavedChanges(true);
+    }
+  }, [name, description, category, instructions, days, isEditorOpen, editingTemplate]);
+
   const resetForm = () => {
     setName('');
     setDescription('');
@@ -73,9 +100,43 @@ const Templates = () => {
     setInstructions('');
     setDays([{ ...DEFAULT_DAY, meals: DEFAULT_DAY.meals.map(m => ({ ...m })) }]);
     setEditingTemplate(null);
+    setHasUnsavedChanges(false);
   };
 
   const openCreate = () => {
+    const saved = localStorage.getItem(DRAFT_KEY);
+    if (saved) {
+      try {
+        const draft = JSON.parse(saved);
+        const hasMeaningfulData = draft.name?.trim() || draft.description?.trim() || draft.days?.some((d: any) => d.meals?.some((m: any) => m.meal?.trim()));
+        if (hasMeaningfulData) {
+          initialDataRef.current = draft;
+          setShowDraftDialog(true);
+          return;
+        }
+      } catch {}
+    }
+    resetForm();
+    setIsEditorOpen(true);
+  };
+
+  const restoreDraft = () => {
+    const draft = initialDataRef.current;
+    if (draft) {
+      setName(draft.name || '');
+      setDescription(draft.description || '');
+      setCategory(draft.category || 'General Wellness');
+      setInstructions(draft.instructions || '');
+      setDays(draft.days || [{ ...DEFAULT_DAY, meals: DEFAULT_DAY.meals.map(m => ({ ...m })) }]);
+    }
+    setShowDraftDialog(false);
+    setIsEditorOpen(true);
+  };
+
+  const discardDraft = () => {
+    localStorage.removeItem(DRAFT_KEY);
+    initialDataRef.current = null;
+    setShowDraftDialog(false);
     resetForm();
     setIsEditorOpen(true);
   };
@@ -242,6 +303,7 @@ const Templates = () => {
     } else {
       await createTemplate.mutateAsync(payload);
     }
+    localStorage.removeItem(DRAFT_KEY);
     setIsEditorOpen(false);
     resetForm();
   };
@@ -453,22 +515,57 @@ const Templates = () => {
         </Button>
       </div>
 
+      {/* Search Filter */}
+      <div className="mb-6">
+        <div className="relative max-w-md">
+          <Input
+            placeholder="Search templates by name, description, or category..."
+            value={searchFilter}
+            onChange={(e) => setSearchFilter(e.target.value)}
+            className="pl-10"
+          />
+          <FileText className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        </div>
+      </div>
+
       {isLoading ? (
         <div className="flex items-center justify-center h-64">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
         </div>
-      ) : templates.length === 0 ? (
-        <Card className="p-12 text-center shadow-card">
-          <FileText className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-          <h3 className="text-lg font-semibold text-foreground mb-2">No templates yet</h3>
-          <p className="text-muted-foreground mb-4">Create your first diet chart template to get started</p>
-          <Button className="gradient-primary text-primary-foreground" onClick={openCreate}>
-            <Plus className="h-4 w-4 mr-2" /> Create Template
-          </Button>
-        </Card>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {templates.map((t) => (
+        <>
+          <div className="mb-4 flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-semibold text-foreground">Diet Chart Templates</h2>
+              <p className="text-sm text-muted-foreground">
+                Showing <span className="font-medium text-foreground">{filteredTemplates.length}</span> 
+                {filteredTemplates.length === 1 ? ' template' : ' templates'}
+                {searchFilter && ` matching "${searchFilter}"`}
+              </p>
+            </div>
+          </div>
+          {filteredTemplates.length === 0 ? (
+            <Card className="p-12 text-center shadow-card">
+              <FileText className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+              <h3 className="text-lg font-semibold text-foreground mb-2">
+                {searchFilter ? 'No templates found' : 'No templates yet'}
+              </h3>
+              <p className="text-muted-foreground mb-4">
+                {searchFilter 
+                  ? `No templates match "${searchFilter}". Try a different search term.` 
+                  : 'Create your first diet chart template to get started'
+                }
+              </p>
+              <Button 
+                className="gradient-primary text-primary-foreground" 
+                onClick={() => searchFilter ? setSearchFilter('') : openCreate()}
+              >
+                <Plus className="h-4 w-4 mr-2" /> {searchFilter ? 'Clear Search' : 'Create Template'}
+              </Button>
+            </Card>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {filteredTemplates.map((t) => (
             <Card key={t.id} className="p-6 shadow-card hover:shadow-card-hover transition-shadow">
               <div className="flex items-start gap-4">
                 <div className="w-12 h-12 rounded-lg bg-secondary flex items-center justify-center shrink-0">
@@ -510,6 +607,8 @@ const Templates = () => {
             </Card>
           ))}
         </div>
+          )}
+        </>
       )}
 
       {/* Editor Full Screen */}
@@ -910,6 +1009,22 @@ const Templates = () => {
           </div>
         </div>
       )}
+
+      {/* Draft Recovery Dialog */}
+      <Dialog open={showDraftDialog} onOpenChange={setShowDraftDialog}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Recover unsaved draft?</DialogTitle>
+            <DialogDescription>
+              You have an unsaved template draft from a previous session. Would you like to continue where you left off?
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={discardDraft}>Discard Draft</Button>
+            <Button onClick={restoreDraft} className="gradient-primary text-primary-foreground">Recover Draft</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Day Sync Dialog */}
       {showDaySyncDialog && (

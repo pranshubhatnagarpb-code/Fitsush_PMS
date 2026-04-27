@@ -2,17 +2,17 @@ import { NavLink, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard,
   Users,
-  
   Receipt,
   FileText,
   UserCog,
   Utensils,
   ChefHat,
+  Ruler,
+  FlaskConical,
   CalendarDays,
   LogOut,
   Menu,
   X,
-  Ruler,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSidebar } from './DashboardLayout';
@@ -23,10 +23,10 @@ import { useState } from 'react';
 const navItems = [
   { title: 'Dashboard', icon: LayoutDashboard, path: '/dashboard' },
   { title: 'Clients', icon: Users, path: '/clients' },
+  { title: 'Body Measurements', icon: Ruler, path: '/body-measurements' },
+  { title: 'Blood Reports', icon: FlaskConical, path: '/blood-reports' },
   { title: 'Appointments', icon: CalendarDays, path: '/appointments' },
-  
   { title: 'Diet Section', icon: Utensils, path: '/diet-section' },
-  { title: 'Body Measurements', icon: Ruler, path: '/measurements' },
   { title: 'Bills Collection', icon: Receipt, path: '/bills' },
   { title: 'Diet Chart Templates', icon: FileText, path: '/templates' },
   { title: 'Employee', icon: UserCog, path: '/employees' },
