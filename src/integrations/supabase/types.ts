@@ -346,9 +346,12 @@ export type Database = {
           name: string
           notes: string | null
           number_of_diet_charts: number | null
+          pause_end_date: string | null
+          pause_start_date: string | null
           phone: string | null
           portal_access_enabled: boolean
           service_duration_months: number | null
+          service_paused_days: number
           service_start_date: string | null
           skin_type: string | null
           supplements: string | null
@@ -375,9 +378,12 @@ export type Database = {
           name: string
           notes?: string | null
           number_of_diet_charts?: number | null
+          pause_end_date?: string | null
+          pause_start_date?: string | null
           phone?: string | null
           portal_access_enabled?: boolean
           service_duration_months?: number | null
+          service_paused_days?: number
           service_start_date?: string | null
           skin_type?: string | null
           supplements?: string | null
@@ -404,9 +410,12 @@ export type Database = {
           name?: string
           notes?: string | null
           number_of_diet_charts?: number | null
+          pause_end_date?: string | null
+          pause_start_date?: string | null
           phone?: string | null
           portal_access_enabled?: boolean
           service_duration_months?: number | null
+          service_paused_days?: number
           service_start_date?: string | null
           skin_type?: string | null
           supplements?: string | null

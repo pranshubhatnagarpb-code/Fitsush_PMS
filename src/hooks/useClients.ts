@@ -28,6 +28,9 @@ export interface Client {
   number_of_diet_charts: number | null;
   employee_id: string | null;
   portal_access_enabled: boolean;
+  pause_start_date: string | null;
+  pause_end_date: string | null;
+  service_paused_days: number | null;
   created_at: string;
   updated_at: string;
 }
