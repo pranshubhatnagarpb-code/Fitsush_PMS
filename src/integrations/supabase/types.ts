@@ -735,6 +735,36 @@ export type Database = {
           },
         ]
       }
+      meal_recipes: {
+        Row: {
+          created_at: string
+          id: string
+          Ingredients: string
+          Instructions: string
+          Meal_name: string
+          meal_name_normalized: string
+          Remarks: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          Ingredients?: string
+          Instructions: string
+          Meal_name: string
+          meal_name_normalized: string
+          Remarks?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          Ingredients?: string
+          Instructions?: string
+          Meal_name?: string
+          meal_name_normalized?: string
+          Remarks?: string
+        }
+        Relationships: []
+      }
       receivables: {
         Row: {
           amount: number
@@ -787,6 +817,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      normalize_meal_recipe_name: {
+        Args: { _meal_name: string }
+        Returns: string
+      }
       get_portal_client_id: { Args: never; Returns: string }
       is_portal_client: { Args: never; Returns: boolean }
     }
