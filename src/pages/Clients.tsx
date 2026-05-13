@@ -165,28 +165,16 @@ const Clients = () => {
   const filteredClients = useMemo(() => {
     let filtered = clients;
     
-    // Filter by search term
-    if (searchTerm.trim()) {
-      const lowerSearchTerm = searchTerm.toLowerCase();
-      filtered = filtered.filter(client => 
-        client.name.toLowerCase().includes(lowerSearchTerm) ||
-        client.phone?.includes(searchTerm) ||
-        client.email?.toLowerCase().includes(lowerSearchTerm) ||
-        client.goal?.toLowerCase().includes(lowerSearchTerm) ||
-        (client.is_active ? 'active' : 'inactive').includes(lowerSearchTerm)
-      );
-    }
-    
-    // Filter by expiry status
-    if (expiryFilter !== 'all') {
-      filtered = filtered.filter(client => {
-        const expiryStatus = calculateExpiryStatus(client);
-        return expiryStatus.color === expiryFilter;
-      });
-    }
-    
-    return filtered;
-  }, [clients, searchTerm, expiryFilter]);
+    const lowerSearchTerm = searchTerm.toLowerCase();
+    return clients.filter(client => 
+      client.name.toLowerCase().includes(lowerSearchTerm) ||
+      client.client_code?.toLowerCase().includes(lowerSearchTerm) ||
+      client.phone?.includes(searchTerm) ||
+      client.email?.toLowerCase().includes(lowerSearchTerm) ||
+      client.goal?.toLowerCase().includes(lowerSearchTerm) ||
+      (client.is_active ? 'active' : 'inactive').includes(lowerSearchTerm)
+    );
+  }, [clients, searchTerm]);
 
   // Clear search function
   const clearSearch = () => {
@@ -194,6 +182,13 @@ const Clients = () => {
   };
 
   const columns = [
+    {
+      key: 'client_code',
+      header: 'Client ID',
+      render: (item: Client) => (
+        <span className="font-mono text-xs text-muted-foreground">{item.client_code || '-'}</span>
+      ),
+    },
     {
       key: 'name',
       header: 'Name',
