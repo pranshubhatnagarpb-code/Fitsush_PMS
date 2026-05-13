@@ -8,10 +8,12 @@ import {
   useUpcomingReceivables,
   useBalanceReceivables,
   useServiceRenewalReminders,
+  useAtRiskClients,
 } from '@/hooks/useDashboardData';
 import { useTodaysBirthdays } from '@/hooks/useClients';
 import { Home, ChevronRight } from 'lucide-react';
 import { CreateAppointmentDialog } from '@/components/appointments/CreateAppointmentDialog';
+import { StatusDot } from '@/components/ui/StatusDot';
 
 const Dashboard = () => {
   const { data: stats, isLoading: statsLoading } = useDashboardStats();
@@ -19,6 +21,7 @@ const Dashboard = () => {
   const { data: birthdays = [] } = useTodaysBirthdays();
   const { data: balanceReceivables = [] } = useBalanceReceivables();
   const { data: serviceRenewals = [] } = useServiceRenewalReminders();
+  const { data: atRiskClients = [] } = useAtRiskClients();
 
   const serviceRenewalColumns = [
     { 
@@ -68,6 +71,33 @@ const Dashboard = () => {
     },
   ];
 
+  const atRiskClientsColumns = [
+    { 
+      key: 'name', 
+      header: 'Client Name',
+      render: (item: any) => (
+        <span className="text-primary font-medium cursor-pointer hover:underline">
+          {item.name || '-'}
+        </span>
+      )
+    },
+    { 
+      key: 'status', 
+      header: 'Expiry Status',
+      render: (item: any) => (
+        <div className="flex items-center gap-2">
+          <StatusDot color={item.color} size="sm" />
+          <span className="text-sm">{item.display}</span>
+        </div>
+      )
+    },
+    { 
+      key: 'phone', 
+      header: 'Mobile',
+      render: (item: any) => item.phone || '-'
+    },
+  ];
+
   return (
     <DashboardLayout>
       <div className="flex items-center gap-2 text-sm text-muted-foreground mb-6">
@@ -93,7 +123,7 @@ const Dashboard = () => {
       </div>
 
       {/* Info Cards Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
         <InfoCard
           title="Today's Birthday/Anniversary"
           tooltip="Clients with birthday or anniversary today"
@@ -125,6 +155,27 @@ const Dashboard = () => {
               {appointments.map((item: any) => (
                 <li key={item.id} className="text-sm">
                   {item.clients?.name} - {item.appointment_time?.slice(0, 5)}
+                </li>
+              ))}
+            </ul>
+          )}
+        </InfoCard>
+
+        <InfoCard
+          title="At-Risk Clients"
+          tooltip="Clients with diet plans expiring in 1-2 days (red or yellow status)"
+        >
+          {atRiskClients.length === 0 ? (
+            <p className="text-muted-foreground text-sm text-center py-6">
+              No at-risk clients
+            </p>
+          ) : (
+            <ul className="space-y-2">
+              {atRiskClients.map((item: any) => (
+                <li key={item.id} className="flex items-center gap-2 text-sm">
+                  <StatusDot color={item.color} size="sm" />
+                  <span>{item.name}</span>
+                  <span className="text-muted-foreground">({item.display})</span>
                 </li>
               ))}
             </ul>

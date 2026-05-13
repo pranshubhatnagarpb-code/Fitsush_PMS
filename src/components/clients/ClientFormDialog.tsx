@@ -383,7 +383,6 @@ export const ClientFormDialog = ({ open, onOpenChange, client, onSubmit, isLoadi
                 <Input
                   id="weight"
                   type="number"
-                  step="0.1"
                   value={formData.weight}
                   onChange={(e) => setFormData({ ...formData, weight: e.target.value })}
                   placeholder="e.g., 65"
