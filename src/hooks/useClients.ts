@@ -144,9 +144,15 @@ export const useCreateClient = () => {
   
   return useMutation({
     mutationFn: async (client: ClientInput) => {
+      // Generate client_code if not provided
+      const clientWithCode = {
+        ...client,
+        client_code: client.client_code || `CL-${Date.now().toString(36).toUpperCase()}`,
+      };
+      
       const { data, error } = await supabase
         .from('clients')
-        .insert(client as any)
+        .insert(clientWithCode as any)
         .select()
         .single();
       
