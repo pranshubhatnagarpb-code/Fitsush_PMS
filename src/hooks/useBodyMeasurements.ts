@@ -9,13 +9,17 @@ export interface BodyMeasurement {
   weight: number | null;
   bmi: number | null;
   body_fat_percent: number | null;
+  visceral_fat: number | null;
+  muscle_mass: number | null;
+  body_age: number | null;
+  resting_metabolism: number | null;
+  neck: number | null;
+  chest: number | null;
+  tummy: number | null;
   waist: number | null;
   hip: number | null;
-  chest: number | null;
   thigh: number | null;
   arm: number | null;
-  neck: number | null;
-  calf: number | null;
   notes: string | null;
   created_at: string;
   updated_at: string;
@@ -31,13 +35,17 @@ export interface BodyMeasurementInput {
   weight?: number | null;
   bmi?: number | null;
   body_fat_percent?: number | null;
+  visceral_fat?: number | null;
+  muscle_mass?: number | null;
+  body_age?: number | null;
+  resting_metabolism?: number | null;
+  neck?: number | null;
+  chest?: number | null;
+  tummy?: number | null;
   waist?: number | null;
   hip?: number | null;
-  chest?: number | null;
   thigh?: number | null;
   arm?: number | null;
-  neck?: number | null;
-  calf?: number | null;
   notes?: string | null;
 }
 
@@ -49,13 +57,17 @@ export const hasAnyMeasurementValue = (measurement: Partial<BodyMeasurementInput
     'weight',
     'bmi',
     'body_fat_percent',
+    'visceral_fat',
+    'muscle_mass',
+    'body_age',
+    'resting_metabolism',
+    'neck',
+    'chest',
+    'tummy',
     'waist',
     'hip',
-    'chest',
     'thigh',
     'arm',
-    'neck',
-    'calf',
   ];
 
   return numericFields.some((field) => measurement[field] !== null && measurement[field] !== undefined)

@@ -19,13 +19,17 @@ interface BodyMeasurementFormData {
   weight: string;
   bmi: string;
   body_fat_percent: string;
+  visceral_fat: string;
+  muscle_mass: string;
+  body_age: string;
+  resting_metabolism: string;
+  neck: string;
+  chest: string;
+  tummy: string;
   waist: string;
   hip: string;
-  chest: string;
   thigh: string;
   arm: string;
-  neck: string;
-  calf: string;
   notes: string;
 }
 
@@ -37,13 +41,17 @@ const emptyFormData: BodyMeasurementFormData = {
   weight: '',
   bmi: '',
   body_fat_percent: '',
+  visceral_fat: '',
+  muscle_mass: '',
+  body_age: '',
+  resting_metabolism: '',
+  neck: '',
+  chest: '',
+  tummy: '',
   waist: '',
   hip: '',
-  chest: '',
   thigh: '',
   arm: '',
-  neck: '',
-  calf: '',
   notes: '',
 };
 
@@ -62,17 +70,24 @@ const parseOptionalNumber = (value: string) => {
   return Number.isFinite(parsed) ? parsed : null;
 };
 
-const numericFields: Array<{ key: keyof Omit<BodyMeasurementFormData, 'client_id' | 'measurement_date' | 'notes'>; label: string; placeholder: string }> = [
+const bcaFields: Array<{ key: keyof Omit<BodyMeasurementFormData, 'client_id' | 'measurement_date' | 'notes' | 'neck' | 'chest' | 'tummy' | 'waist' | 'hip' | 'thigh' | 'arm'>; label: string; placeholder: string }> = [
   { key: 'weight', label: 'Weight (kg)', placeholder: 'e.g., 72.4' },
-  { key: 'bmi', label: 'BMI', placeholder: 'e.g., 24.1' },
   { key: 'body_fat_percent', label: 'Body Fat %', placeholder: 'e.g., 28.5' },
+  { key: 'visceral_fat', label: 'VF (Visceral Fat)', placeholder: 'e.g., 12' },
+  { key: 'muscle_mass', label: 'Muscle Mass', placeholder: 'e.g., 35.2' },
+  { key: 'body_age', label: 'Body Age', placeholder: 'e.g., 32' },
+  { key: 'resting_metabolism', label: 'RM (Resting Metabolism)', placeholder: 'e.g., 1650' },
+  { key: 'bmi', label: 'BMI', placeholder: 'e.g., 24.1' },
+];
+
+const measurementFields: Array<{ key: keyof Omit<BodyMeasurementFormData, 'client_id' | 'measurement_date' | 'notes' | 'weight' | 'bmi' | 'body_fat_percent' | 'visceral_fat' | 'muscle_mass' | 'body_age' | 'resting_metabolism'>; label: string; placeholder: string }> = [
+  { key: 'neck', label: 'Neck', placeholder: 'e.g., 14' },
+  { key: 'chest', label: 'Chest', placeholder: 'e.g., 38' },
+  { key: 'tummy', label: 'Tummy', placeholder: 'e.g., 32' },
   { key: 'waist', label: 'Waist', placeholder: 'e.g., 34' },
   { key: 'hip', label: 'Hip', placeholder: 'e.g., 40' },
-  { key: 'chest', label: 'Chest', placeholder: 'e.g., 38' },
   { key: 'thigh', label: 'Thigh', placeholder: 'e.g., 22' },
   { key: 'arm', label: 'Arm', placeholder: 'e.g., 12.5' },
-  { key: 'neck', label: 'Neck', placeholder: 'e.g., 14' },
-  { key: 'calf', label: 'Calf', placeholder: 'e.g., 15.5' },
 ];
 
 export const BodyMeasurementFormDialog = ({ open, onOpenChange, measurement, defaultClientId, onSubmit, isLoading }: Props) => {
@@ -88,13 +103,17 @@ export const BodyMeasurementFormDialog = ({ open, onOpenChange, measurement, def
         weight: measurement.weight?.toString() || '',
         bmi: measurement.bmi?.toString() || '',
         body_fat_percent: measurement.body_fat_percent?.toString() || '',
+        visceral_fat: (measurement as any).visceral_fat?.toString() || '',
+        muscle_mass: (measurement as any).muscle_mass?.toString() || '',
+        body_age: (measurement as any).body_age?.toString() || '',
+        resting_metabolism: (measurement as any).resting_metabolism?.toString() || '',
+        neck: measurement.neck?.toString() || '',
+        chest: measurement.chest?.toString() || '',
+        tummy: (measurement as any).tummy?.toString() || '',
         waist: measurement.waist?.toString() || '',
         hip: measurement.hip?.toString() || '',
-        chest: measurement.chest?.toString() || '',
         thigh: measurement.thigh?.toString() || '',
         arm: measurement.arm?.toString() || '',
-        neck: measurement.neck?.toString() || '',
-        calf: measurement.calf?.toString() || '',
         notes: measurement.notes || '',
       });
       return;
@@ -107,7 +126,10 @@ export const BodyMeasurementFormDialog = ({ open, onOpenChange, measurement, def
     });
   }, [measurement, defaultClientId, open]);
 
-  const hasAnyMeasurement = useMemo(() => numericFields.some(({ key }) => !!formData[key].trim()) || !!formData.notes.trim(), [formData]);
+  const hasAnyMeasurement = useMemo(() => 
+    [...bcaFields, ...measurementFields, { key: 'weight', label: '', placeholder: '' }].some(({ key }) => !!formData[key as keyof BodyMeasurementFormData]?.trim()) 
+    || !!formData.notes.trim(), 
+  [formData]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -118,13 +140,17 @@ export const BodyMeasurementFormDialog = ({ open, onOpenChange, measurement, def
       weight: parseOptionalNumber(formData.weight),
       bmi: parseOptionalNumber(formData.bmi),
       body_fat_percent: parseOptionalNumber(formData.body_fat_percent),
+      visceral_fat: parseOptionalNumber(formData.visceral_fat),
+      muscle_mass: parseOptionalNumber(formData.muscle_mass),
+      body_age: parseOptionalNumber(formData.body_age),
+      resting_metabolism: parseOptionalNumber(formData.resting_metabolism),
+      neck: parseOptionalNumber(formData.neck),
+      chest: parseOptionalNumber(formData.chest),
+      tummy: parseOptionalNumber(formData.tummy),
       waist: parseOptionalNumber(formData.waist),
       hip: parseOptionalNumber(formData.hip),
-      chest: parseOptionalNumber(formData.chest),
       thigh: parseOptionalNumber(formData.thigh),
       arm: parseOptionalNumber(formData.arm),
-      neck: parseOptionalNumber(formData.neck),
-      calf: parseOptionalNumber(formData.calf),
       notes: formData.notes.trim() || null,
     });
   };
@@ -166,17 +192,40 @@ export const BodyMeasurementFormDialog = ({ open, onOpenChange, measurement, def
 
           <div className="space-y-4">
             <div>
-              <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">Measurements</h3>
-              <p className="text-xs text-muted-foreground mt-1">Enter only the values collected during this visit.</p>
+              <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">BCA Parameters</h3>
+              <p className="text-xs text-muted-foreground mt-1">Body Composition Analysis parameters</p>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {numericFields.map((field) => (
+              {bcaFields.map((field) => (
                 <div key={field.key} className="space-y-2">
                   <Label htmlFor={field.key}>{field.label}</Label>
                   <Input
                     id={field.key}
                     type="number"
-                    step="0.1"
+                    step="0.01"
+                    min="0"
+                    value={formData[field.key]}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, [field.key]: e.target.value }))}
+                    placeholder={field.placeholder}
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <div>
+              <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">Measurements</h3>
+              <p className="text-xs text-muted-foreground mt-1">Body measurements in cm</p>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {measurementFields.map((field) => (
+                <div key={field.key} className="space-y-2">
+                  <Label htmlFor={field.key}>{field.label}</Label>
+                  <Input
+                    id={field.key}
+                    type="number"
+                    step="0.01"
                     min="0"
                     value={formData[field.key]}
                     onChange={(e) => setFormData((prev) => ({ ...prev, [field.key]: e.target.value }))}
