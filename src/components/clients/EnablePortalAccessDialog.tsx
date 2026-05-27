@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { KeyRound, Loader2, Eye, EyeOff, CheckCircle2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { FunctionsHttpError } from '@supabase/supabase-js';
 import { toast } from 'sonner';
 import type { Client } from '@/hooks/useClients';
 
@@ -60,7 +61,14 @@ export const EnablePortalAccessDialog = ({ open, onOpenChange, client, onSuccess
           phone: client.phone,
         },
       });
-      if (error) throw error;
+      if (error) {
+        let message = error.message;
+        if (error instanceof FunctionsHttpError) {
+          const body = await error.context.json().catch(() => null);
+          if (body?.error) message = body.error;
+        }
+        throw new Error(message);
+      }
       if (data?.error) throw new Error(data.error);
 
       toast.success('Portal access enabled');

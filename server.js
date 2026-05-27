@@ -5,9 +5,10 @@ import cors from 'cors';
 import { config } from 'dotenv';
 import { createClient } from '@supabase/supabase-js';
 
-// Load environment variables from both files
+// Load environment variables from multiple files in order
 config({ path: '../../.env' });
-config({ path: '.env.local/.env.local', override: false });
+config({ path: '.env', override: false });
+config({ path: '.env.local', override: false });
 
 const app = express();
 app.use(cors());
@@ -437,6 +438,108 @@ Create a comprehensive food plan covering ${numberOfDays} days starting from ${s
     res.json({ dietPlan });
   } catch (error) {
     console.error("Error generating diet plan:", error);
+    
+    // Ensure we always send JSON response
+    const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+    
+    if (errorMessage.includes("OpenAI API key")) {
+      res.status(500).json({ error: "API configuration error. Please contact support." });
+    } else if (errorMessage.includes("quota") || errorMessage.includes("rate limit")) {
+      res.status(429).json({ error: "API rate limit exceeded. Please try again later." });
+    } else {
+      res.status(500).json({ error: errorMessage });
+    }
+  }
+});
+
+// Recipe generation endpoint
+app.post('/api/generate-recipe', async (req, res) => {
+  try {
+    const { dishName } = req.body;
+
+    if (!dishName || typeof dishName !== "string" || dishName.trim().length === 0) {
+      return res.status(400).json({ error: 'Please provide a dish name.' });
+    }
+
+    if (!openai) {
+      throw new Error("OpenAI API key not configured");
+    }
+
+    const systemPrompt = `You are an expert Indian chef and nutritionist. When given a dish name, provide a detailed recipe in JSON format.
+
+Your response must be a valid JSON object with exactly this structure:
+{
+  "dishName": "Full dish name",
+  "description": "1-2 sentence description of the dish",
+  "prepTime": "e.g. 15 mins",
+  "cookTime": "e.g. 30 mins",
+  "servings": "e.g. 4 servings",
+  "difficulty": "Easy / Medium / Hard",
+  "calories": "Approximate calories per serving",
+  "ingredients": [
+    { "item": "Ingredient name", "quantity": "Amount with unit" }
+  ],
+  "instructions": [
+    "Step 1 description",
+    "Step 2 description"
+  ],
+  "tips": ["Helpful cooking tip 1", "Tip 2"],
+  "nutritionInfo": {
+    "protein": "e.g. 12g",
+    "carbs": "e.g. 45g",
+    "fat": "e.g. 8g",
+    "fiber": "e.g. 3g"
+  }
+}
+
+Focus on:
+- Authentic Indian recipes when the dish is Indian, otherwise provide the authentic recipe for that cuisine
+- Exact quantities and measurements
+- Clear step-by-step instructions
+- Practical tips for best results
+- Accurate nutrition estimates`;
+
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: `Give me a detailed recipe for: ${dishName.trim()}` },
+      ],
+      temperature: 0.8,
+      max_tokens: 2000,
+      response_format: { type: "json_object" },
+    });
+    
+    const content = completion.choices[0]?.message?.content;
+
+    if (!content) {
+      throw new Error("No content in AI response");
+    }
+
+    let recipe;
+    try {
+      // Try to parse as JSON directly first
+      recipe = JSON.parse(content.trim());
+    } catch (parseError) {
+      // If that fails, try to extract JSON from code blocks
+      try {
+        const jsonMatch = content.match(/```json\s*([\s\S]*?)\s*```/) || content.match(/```\s*([\s\S]*?)\s*```/);
+        const jsonString = jsonMatch ? jsonMatch[1] : content;
+        recipe = JSON.parse(jsonString.trim());
+      } catch (secondParseError) {
+        console.error("Failed to parse AI response:", content);
+        throw new Error("Failed to parse recipe from AI response");
+      }
+    }
+
+    // Validate the response structure
+    if (!recipe || typeof recipe !== 'object') {
+      throw new Error("Invalid AI response format");
+    }
+    
+    res.json({ recipe });
+  } catch (error) {
+    console.error("Error generating recipe:", error);
     
     // Ensure we always send JSON response
     const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";

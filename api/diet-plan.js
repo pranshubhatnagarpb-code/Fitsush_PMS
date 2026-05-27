@@ -194,10 +194,10 @@ CRITICAL TIMING ENFORCEMENT:
 - For intermittent fasting: Condense meals within eating window, remove fasting period meals
 
 CREATIVE SUBSTITUTION SYSTEM:
-- Wheat flour → Ragi flour, Jowar flour, Quinoa flour, Buckwheat flour (NO BAJRA if specified)
-- Rice → Quinoa, Millets, Cauliflower rice, Buckwheat
-- Regular pasta → Millet pasta, Red lentil pasta, Zucchini noodles
-- Bread → Ragi bread, Jowar bread, Multigrain bread, Lettuce wraps
+- Wheat flour -> Ragi flour, Jowar flour, Quinoa flour, Buckwheat flour (NO BAJRA if specified)
+- Rice -> Quinoa, Millets, Cauliflower rice, Buckwheat
+- Regular pasta -> Millet pasta, Red lentil pasta, Zucchini noodles
+- Bread -> Ragi bread, Jowar bread, Multigrain bread, Lettuce wraps
 
 REGIONAL CUISINE VARIETY REQUIREMENT:
 Each day-group must feature different regional Indian cuisine:
@@ -333,8 +333,8 @@ Create a comprehensive food plan that strictly adheres to all dietary restrictio
             { role: "user", content: userPrompt },
           ],
           temperature: 0.8,
-          response_format: { type: "json_object" },
           max_tokens: 4000,
+          response_format: { type: "json_object" },
         });
         break; // Success, exit retry loop
       } catch (apiError) {

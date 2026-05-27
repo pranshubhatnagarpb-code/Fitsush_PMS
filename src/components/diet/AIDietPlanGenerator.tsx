@@ -12,6 +12,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Sparkles, Download, Loader2, Pencil, Check, X, CheckCircle2, Plus, Trash2, Save, CalendarIcon, BookTemplate, RefreshCw, Copy, Calendar as CalendarDays, Hash, Clock } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
+import { FunctionsHttpError } from '@supabase/supabase-js';
 import { Client } from '@/hooks/useClients';
 import { useDietChartTemplates, useCreateTemplate, type DietChartTemplate, type TemplateDay, type TemplateMeal } from '@/hooks/useDietChartTemplates';
 import { format, addDays, startOfWeek } from 'date-fns';
@@ -551,26 +552,24 @@ export const AIDietPlanGenerator = ({ clients, editModeData, onClose }: Props) =
         numberOfDays: parseInt(numberOfDays)
       });
       
-      const { data: { session } } = await supabase.auth.getSession();
-      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-diet-plan`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session?.access_token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-          'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-        },
-        body: JSON.stringify({ 
-          clientDetails, 
-          customPrompt: customPrompt.trim() || undefined, 
+      const { data, error: fnError } = await supabase.functions.invoke('generate-diet-plan', {
+        body: {
+          clientDetails,
+          customPrompt: customPrompt.trim() || undefined,
           numberOfDays: parseInt(numberOfDays),
-          startDate: startDateString
-        }),
+          startDate: startDateString,
+        },
       });
-      
-      const data = await response.json();
-      
-      if (!response.ok) throw new Error(data.error || 'Failed to generate diet plan');
-      if (!data?.dietPlan) throw new Error('No plan Generated');
+
+      if (fnError) {
+        let message = fnError.message;
+        if (fnError instanceof FunctionsHttpError) {
+          const body = await fnError.context.json().catch(() => null);
+          if (body?.error) message = body.error;
+        }
+        throw new Error(message);
+      }
+      if (!data?.dietPlan) throw new Error('No plan generated');
       
       console.log('AI Response:', data.dietPlan);
       
