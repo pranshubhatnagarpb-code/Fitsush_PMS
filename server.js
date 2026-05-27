@@ -6,15 +6,20 @@ import { config } from 'dotenv';
 import { createClient } from '@supabase/supabase-js';
 
 // Load environment variables from both files
-config({ path: '.env' });
+config({ path: '../../.env' });
 config({ path: '.env.local/.env.local', override: false });
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Initialize OpenAI
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+// Initialize OpenAI (optional - server will start without it)
+let openai = null;
+if (process.env.OPENAI_API_KEY) {
+  openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+} else {
+  console.warn('OPENAI_API_KEY not set. Diet plan generation features will be disabled.');
+}
 
 // Initialize Supabase
 const supabase = createClient(
