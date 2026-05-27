@@ -125,45 +125,44 @@ const SavedDietPlans = () => {
   <title>${aiData.planName}</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 25px 35px; color: #333; font-size: 11px; line-height: 1.4; }
-    .header { text-align: center; margin-bottom: 25px; border-bottom: 2px solid #5a7a32; padding-bottom: 15px; }
-    .header h1 { color: #5a7a32; font-size: 20px; margin-bottom: 5px; }
-    .header p { color: #666; font-size: 12px; }
-    .week-badge { display: inline-block; background: #5a7a32; color: white; padding: 3px 8px; border-radius: 12px; font-size: 10px; margin-left: 10px; }
-    .client-details { background: #f0f7ff; border: 1px solid #b3d1ff; border-radius: 8px; padding: 15px; margin-bottom: 20px; }
-    .client-details h3 { color: #1a5fb4; font-size: 14px; margin-bottom: 10px; }
-    .client-details-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; font-size: 10px; }
-    .client-details-grid div { margin-bottom: 5px; }
-    .client-details-grid span { font-weight: bold; color: #555; }
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 25px 35px; color: #334155; font-size: 11px; line-height: 1.4; }
+    .header { text-align: center; margin-bottom: 25px; border-bottom: 2px solid #00a896; padding-bottom: 15px; }
+    .header h1 { color: #00a896; font-size: 20px; margin-bottom: 5px; }
+    .header p { color: #64748b; font-size: 12px; }
+    .week-badge { display: inline-block; background: #00a896; color: white; padding: 3px 8px; border-radius: 12px; font-size: 10px; margin-left: 10px; }
+    .client-details { background: #f0fdff; border: 1px solid #b3e5e0; border-radius: 8px; padding: 15px; margin-bottom: 20px; }
+    .client-details h3 { color: #0d7477; font-size: 14px; margin-bottom: 10px; }
+    .client-details-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
+    .client-details-grid span { font-weight: bold; color: #475569; }
     .health-conditions { margin-top: 10px; }
-    .health-conditions h4 { font-size: 10px; margin-bottom: 5px; color: #555; }
+    .health-conditions h4 { font-size: 10px; margin-bottom: 5px; color: #475569; }
     .condition-badge { display: inline-block; background: #e3f2fd; color: #1976d2; padding: 2px 6px; border-radius: 10px; font-size: 9px; margin-right: 4px; margin-bottom: 4px; }
     .client-notes { margin-top: 10px; }
-    .client-notes h4 { font-size: 10px; margin-bottom: 5px; color: #555; }
-    .intro { background: #f9f9f9; padding: 15px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #5a7a32; }
+    .client-notes h4 { font-size: 10px; margin-bottom: 5px; color: #475569; }
+    .intro { background: #f0fdff; padding: 15px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #00a896; }
     .intro p { margin: 0; font-style: italic; }
-    .section-title { color: #5a7a32; font-size: 16px; font-weight: bold; margin: 25px 0 15px 0; border-bottom: 1px solid #d4e4bc; padding-bottom: 5px; }
+    .section-title { color: #00a896; font-size: 16px; font-weight: bold; margin: 25px 0 15px 0; border-bottom: 1px solid #b3e5e0; padding-bottom: 5px; }
     table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 10px; }
-    th { background: #5a7a32; color: white; padding: 8px; text-align: left; font-weight: bold; }
-    td { padding: 8px; border-bottom: 1px solid #ddd; vertical-align: top; }
-    tr:nth-child(even) { background: #f9f9f9; }
-    .affirmations { background: #fef9e7; padding: 15px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #f39c12; }
-    .affirmations h3 { color: #f39c12; font-size: 14px; margin-bottom: 10px; }
+    th { background: #00a896; color: white; padding: 8px; text-align: left; font-weight: bold; }
+    td { padding: 8px; border-bottom: 1px solid #e2e8f0; vertical-align: top; }
+    tr:nth-child(even) { background: #f8fafc; }
+    .affirmations { background: #f0fdf4; padding: 15px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #00a896; }
+    .affirmations h3 { color: #00a896; font-size: 14px; margin-bottom: 10px; }
     .affirmations ul { margin-left: 20px; }
     .affirmations li { margin-bottom: 5px; }
-    .important-notes { background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 5px; padding: 15px; margin-bottom: 20px; }
-    .important-notes h4 { color: #856404; font-size: 12px; margin-bottom: 10px; }
+    .important-notes { background: #fefce8; border: 1px solid #fde047; border-radius: 5px; padding: 15px; margin-bottom: 20px; }
+    .important-notes h4 { color: #a16207; font-size: 12px; margin-bottom: 10px; }
     .important-notes ul { margin-left: 15px; }
     .important-notes li { margin-bottom: 5px; font-size: 10px; }
     .tips-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 20px; }
-    .tip-card { background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 5px; padding: 10px; }
-    .tip-card h4 { font-size: 11px; margin-bottom: 5px; color: #495057; }
+    .tip-card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 5px; padding: 10px; }
+    .tip-card h4 { font-size: 11px; margin-bottom: 5px; color: #334155; }
     .tip-card p { font-size: 9px; margin: 0; }
     .oil-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 15px; }
-    .oil-card { background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 5px; padding: 10px; }
-    .oil-card h4 { font-size: 10px; margin-bottom: 5px; color: #333; }
-    .oil-note { font-size: 9px; color: #666; font-style: italic; margin: 0; }
-    .footer { text-align: center; margin-top: 30px; padding-top: 15px; border-top: 1px solid #ddd; font-size: 9px; color: #999; }
+    .oil-card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 5px; padding: 10px; }
+    .oil-card h4 { font-size: 10px; margin-bottom: 5px; color: #334155; }
+    .oil-note { font-size: 9px; color: #64748b; font-style: italic; margin: 0; }
+    .footer { text-align: center; margin-top: 30px; padding-top: 15px; border-top: 1px solid #e2e8f0; font-size: 9px; color: #64748b; }
     @media print {
       body { padding: 15px; }
       .header { margin-bottom: 15px; }

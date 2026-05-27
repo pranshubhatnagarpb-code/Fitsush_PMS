@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { FunctionsHttpError } from "@supabase/supabase-js";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -40,20 +42,19 @@ const Recipes = () => {
     setRecipe(null);
 
     try {
-      const response = await fetch('/api/generate-recipe', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ dishName: dishName.trim() }),
+      const { data, error: fnError } = await supabase.functions.invoke('generate-recipe', {
+        body: { dishName: dishName.trim() },
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to generate recipe');
+      if (fnError) {
+        let message = fnError.message;
+        if (fnError instanceof FunctionsHttpError) {
+          const body = await fnError.context.json().catch(() => null);
+          if (body?.error) message = body.error;
+        }
+        throw new Error(message);
       }
 
-      const data = await response.json();
       setRecipe(data.recipe);
       toast.success("Recipe generated successfully!");
     } catch (err: any) {
@@ -82,7 +83,7 @@ const Recipes = () => {
         scale: 2,
         useCORS: true,
         logging: false,
-        backgroundColor: '#ffffff',
+        backgroundColor: '#f8fafc',
       });
       
       // Create PDF

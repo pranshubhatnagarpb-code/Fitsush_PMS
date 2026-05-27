@@ -155,12 +155,12 @@ const DietSection = () => {
           <title>Diet Plan - ${clientName}</title>
           <style>
             body { font-family: Arial, sans-serif; padding: 20px; }
-            h1 { color: #EC4899; }
+            h1 { color: #00a896; }
             table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-            th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
-            th { background-color: #FDF2F8; color: #BE185D; }
+            th, td { border: 1px solid #e2e8f0; padding: 12px; text-align: left; }
+            th { background-color: #f0fdff; color: #0d7477; }
             .header { margin-bottom: 20px; }
-            .instructions { font-style: italic; color: #666; }
+            .instructions { font-style: italic; color: #64748b; }
           </style>
         </head>
         <body>
@@ -197,7 +197,7 @@ const DietSection = () => {
               `).join('')}
             </tbody>
           </table>
-          <p style="margin-top: 30px; color: #666;">
+          <p style="margin-top: 30px; color: #64748b;">
             © 2026 Dr. Malika Kabra Rathi. This nutrition plan is personalized and should be followed as advised.
           </p>
         </body>

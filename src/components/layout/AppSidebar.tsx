@@ -86,13 +86,13 @@ export const AppSidebar = () => {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <img 
-                  src="/NHZ LOGO.png" 
-                  alt="NHZ Logo" 
-                  className="w-10 h-10 rounded-full object-cover"
+                  src="/MKR Logo.webp" 
+                  alt="MKR Clinic Logo" 
+                  className="w-20 h-10 object-cover"
                 />
                 <div>
-                  <h1 className="font-semibold text-foreground text-sm">NUTRITION</h1>
-                  <p className="text-xs text-muted-foreground">HAI ZARURI</p>
+                  <h1 className="font-semibold text-foreground text-sm">MKR</h1>
+                  <p className="text-xs text-muted-foreground">CLINIC</p>
                 </div>
               </div>
               <Button

@@ -66,15 +66,15 @@ Guidelines:
 
     const userPrompt = `Please provide a detailed recipe for: ${dishName.trim()}`;
 
-    // Use gpt-3.5-turbo for speed and cost efficiency
+    // Use gpt-4o model for consistency
     const completion = await openai.chat.completions.create({
-      model: "gpt-3.5-turbo",
+      model: "gpt-4o",
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt },
       ],
-      temperature: 0.7,
-      max_tokens: 1500,
+      temperature: 0.8,
+      max_tokens: 2000,
     });
     
     const content = completion.choices[0]?.message?.content;

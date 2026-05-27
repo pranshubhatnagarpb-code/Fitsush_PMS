@@ -83,12 +83,18 @@ const Login = () => {
         <Card className="p-8 shadow-lg-custom">
           {/* Logo */}
           <div className="flex flex-col items-center mb-8">
-            <div className="w-16 h-16 rounded-full gradient-primary flex items-center justify-center mb-4">
-              <Utensils className="h-8 w-8 text-primary-foreground" />
+            <div className="flex items-center gap-3">
+                <img 
+                  src="/MKR Logo.webp" 
+                  alt="MKR Clinic Logo" 
+                  className="w-20 h-10 object-cover"
+                />
+                <div> 
+                  <h1 className="text-2xl font-bold text-foreground">MKR - NUTRITION CLINIC</h1>
+                  <p className="text-muted-foreground text-sm mt-1">Internal Team Dashboard</p>
+                </div>
+              </div>
             </div>
-            <h1 className="text-2xl font-bold text-foreground">DR. MALIKA KABRA RATHI - NUTRITION CLINIC</h1>
-            <p className="text-muted-foreground text-sm mt-1">Internal Team Dashboard</p>
-          </div>
 
           {/* Login Form */}
           <form onSubmit={handleSubmit} className="space-y-5">
