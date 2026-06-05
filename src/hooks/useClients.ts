@@ -14,6 +14,8 @@ export interface Client {
   weight: number | null;
   height: number | null;
   health_conditions: string[];
+  chief_complaints: string[] | null;
+  family_history: string[] | null;
   supplements: string | null;
   total_receivables: number | null;
   total_fees: number | null;

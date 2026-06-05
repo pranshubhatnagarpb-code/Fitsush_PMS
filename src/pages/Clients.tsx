@@ -1,7 +1,8 @@
 import { useState, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { DataTable } from '@/components/dashboard/DataTable';
-import { Home, ChevronRight, Plus, Pencil, Trash2, Search, X, KeyRound, ShieldCheck } from 'lucide-react';
+import { Home, ChevronRight, Plus, Pencil, Trash2, Search, X, KeyRound, ShieldCheck, Eye } from 'lucide-react';
 import { EnablePortalAccessDialog } from '@/components/clients/EnablePortalAccessDialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -28,6 +29,7 @@ import {
 } from '@/components/ui/alert-dialog';
 
 const Clients = () => {
+  const navigate = useNavigate();
   const { data: clients = [], isLoading } = useClientsWithDietData();
   const createClient = useCreateClient();
   const updateClient = useUpdateClient();
@@ -68,7 +70,6 @@ const Clients = () => {
           thigh: initialMeasurement.thigh ?? null,
           arm: initialMeasurement.arm ?? null,
           neck: initialMeasurement.neck ?? null,
-          calf: initialMeasurement.calf ?? null,
           notes: initialMeasurement.notes ?? null,
         });
       }
@@ -293,6 +294,9 @@ const Clients = () => {
       header: 'Actions',
       render: (item: Client) => (
         <div className="flex gap-2">
+          <Button variant="ghost" size="icon" title="View details" onClick={() => navigate(`/clients/${item.id}`)}>
+            <Eye className="h-4 w-4 text-primary" />
+          </Button>
           <Button variant="ghost" size="icon" onClick={() => openEditDialog(item)}>
             <Pencil className="h-4 w-4" />
           </Button>

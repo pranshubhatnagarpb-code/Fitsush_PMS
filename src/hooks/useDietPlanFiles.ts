@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { generateDietPlanPdfBlob } from '@/lib/dietPlanPdf';
 
 export interface DietPlanFile {
   id: string;
@@ -169,28 +170,65 @@ export const getDietPlanFileSignedUrl = async (filePath: string, expiresInSecond
 export const usePublishDietPlan = () => {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ planId }: { planId: string }) => {
+    mutationFn: async ({ planId, plan }: { planId: string; plan?: any }) => {
       const { data: userData } = await supabase.auth.getUser();
       const now = new Date().toISOString();
 
+      // 1. Mark the plan as published + active
       const { error: planErr } = await supabase
         .from('diet_plans')
-        .update({ is_published: true, published_at: now })
+        .update({ is_published: true, published_at: now, status: 'active' })
         .eq('id', planId);
       if (planErr) throw planErr;
 
+      // 2. Mark any existing file records as published
       const { error: filesErr } = await supabase
         .from('client_diet_plan_files')
         .update({ is_published: true, published_at: now, published_by: userData.user?.id ?? null })
         .eq('diet_plan_id', planId);
       if (filesErr) throw filesErr;
 
+      // 3. Auto-generate a PDF and upload it so the client can download it immediately
+      if (plan) {
+        try {
+          const blob = await generateDietPlanPdfBlob(plan);
+          if (blob) {
+            const fileName = `${plan.plan_name?.replace(/[^a-z0-9]/gi, '_') ?? 'diet_plan'}_${Date.now()}.pdf`;
+            const filePath = `${plan.client_id}/${planId}/${fileName}`;
+
+            const { error: uploadErr } = await supabase.storage
+              .from(BUCKET)
+              .upload(filePath, blob, { contentType: 'application/pdf', upsert: true });
+
+            if (!uploadErr) {
+              // Insert or upsert the file record so the PWA can list it
+              await supabase.from('client_diet_plan_files').upsert(
+                {
+                  client_id: plan.client_id,
+                  diet_plan_id: planId,
+                  file_name: fileName,
+                  file_path: filePath,
+                  mime_type: 'application/pdf',
+                  is_published: true,
+                  published_at: now,
+                  published_by: userData.user?.id ?? null,
+                },
+                { onConflict: 'diet_plan_id,file_path' }
+              );
+            }
+          }
+        } catch {
+          // PDF generation failure should not block the publish action
+        }
+      }
+
       return { planId };
     },
     onSuccess: ({ planId }) => {
       qc.invalidateQueries({ queryKey: ['diet_plans'] });
       qc.invalidateQueries({ queryKey: ['client_diet_plan_files', 'plan', planId] });
-      toast.success('Diet plan published — visible in client app');
+      qc.invalidateQueries({ queryKey: ['client_diet_plan_files'] });
+      toast.success('Diet plan published — PDF generated and visible in client app');
     },
     onError: (e: any) => toast.error('Publish failed', { description: e.message }),
   });

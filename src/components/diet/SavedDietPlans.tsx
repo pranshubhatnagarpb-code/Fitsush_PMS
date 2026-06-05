@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Eye, Trash2, Download, Search, Calendar, User, Copy, Loader2, Edit, Check, X, Globe, EyeOff } from 'lucide-react';
-import { DietPlanPdfManager } from './DietPlanPdfManager';
+import { openDietPlanForPrint } from '@/lib/dietPlanPdf';
 import { useSavedDietPlans, useDeleteDietPlan } from '@/hooks/useDietPlans';
 import { usePublishDietPlan, useUnpublishDietPlan } from '@/hooks/useDietPlanFiles';
 import { supabase } from '@/integrations/supabase/client';
@@ -180,257 +180,8 @@ const SavedDietPlans = () => {
   };
 
   const handleDownloadPDF = (plan: any) => {
-    const isAI = plan.is_ai_generated && plan.ai_plan_data;
-
-    if (!isAI) {
-      toast.error('Only AI-generated plans can be downloaded');
-      return;
-    }
-
-    const aiData = plan.ai_plan_data as any;
-    const clientDetails = {
-      name: plan.clients?.name || 'Client',
-      age: plan.clients?.date_of_birth ? calculateAge(plan.clients.date_of_birth) : '--',
-      gender: plan.clients?.gender || 'Not specified',
-      height: plan.clients?.height || '--',
-      weight: plan.clients?.weight || '--',
-      skinType: plan.clients?.skin_type || 'Not specified',
-      hairType: plan.clients?.hair_type || 'Not specified',
-      goal: plan.clients?.goal || 'Not specified',
-      dietPreference: plan.clients?.diet_preference || 'Not specified',
-      healthConditions: plan.clients?.health_conditions || [],
-      notes: plan.clients?.notes || '',
-    };
-
-    const escapeHtml = (str: string) => str.replace(/\n/g, '<br/>');
-
-    const content = `<!DOCTYPE html>
-<html>
-<head>
-  <title>${aiData.planName}</title>
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 25px 35px; color: #334155; font-size: 11px; line-height: 1.4; }
-    .header { text-align: center; margin-bottom: 25px; border-bottom: 2px solid #00a896; padding-bottom: 15px; }
-    .header h1 { color: #00a896; font-size: 20px; margin-bottom: 5px; }
-    .header p { color: #64748b; font-size: 12px; }
-    .week-badge { display: inline-block; background: #00a896; color: white; padding: 3px 8px; border-radius: 12px; font-size: 10px; margin-left: 10px; }
-    .client-details { background: #f0fdff; border: 1px solid #b3e5e0; border-radius: 8px; padding: 15px; margin-bottom: 20px; }
-    .client-details h3 { color: #0d7477; font-size: 14px; margin-bottom: 10px; }
-    .client-details-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
-    .client-details-grid span { font-weight: bold; color: #475569; }
-    .health-conditions { margin-top: 10px; }
-    .health-conditions h4 { font-size: 10px; margin-bottom: 5px; color: #475569; }
-    .condition-badge { display: inline-block; background: #e3f2fd; color: #1976d2; padding: 2px 6px; border-radius: 10px; font-size: 9px; margin-right: 4px; margin-bottom: 4px; }
-    .client-notes { margin-top: 10px; }
-    .client-notes h4 { font-size: 10px; margin-bottom: 5px; color: #475569; }
-    .intro { background: #f0fdff; padding: 15px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #00a896; }
-    .intro p { margin: 0; font-style: italic; }
-    .section-title { color: #00a896; font-size: 16px; font-weight: bold; margin: 25px 0 15px 0; border-bottom: 1px solid #b3e5e0; padding-bottom: 5px; }
-    table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 10px; }
-    th { background: #00a896; color: white; padding: 8px; text-align: left; font-weight: bold; }
-    td { padding: 8px; border-bottom: 1px solid #e2e8f0; vertical-align: top; }
-    tr:nth-child(even) { background: #f8fafc; }
-    .affirmations { background: #f0fdf4; padding: 15px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #00a896; }
-    .affirmations h3 { color: #00a896; font-size: 14px; margin-bottom: 10px; }
-    .affirmations ul { margin-left: 20px; }
-    .affirmations li { margin-bottom: 5px; }
-    .important-notes { background: #fefce8; border: 1px solid #fde047; border-radius: 5px; padding: 15px; margin-bottom: 20px; }
-    .important-notes h4 { color: #a16207; font-size: 12px; margin-bottom: 10px; }
-    .important-notes ul { margin-left: 15px; }
-    .important-notes li { margin-bottom: 5px; font-size: 10px; }
-    .tips-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 20px; }
-    .tip-card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 5px; padding: 10px; }
-    .tip-card h4 { font-size: 11px; margin-bottom: 5px; color: #334155; }
-    .tip-card p { font-size: 9px; margin: 0; }
-    .oil-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 15px; }
-    .oil-card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 5px; padding: 10px; }
-    .oil-card h4 { font-size: 10px; margin-bottom: 5px; color: #334155; }
-    .oil-note { font-size: 9px; color: #64748b; font-style: italic; margin: 0; }
-    .footer { text-align: center; margin-top: 30px; padding-top: 15px; border-top: 1px solid #e2e8f0; font-size: 9px; color: #64748b; }
-    @media print {
-      body { padding: 15px; }
-      .header { margin-bottom: 15px; }
-      .section-title { margin: 20px 0 10px 0; }
-    }
-  </style>
-</head>
-<body>
-  <div class="header">
-    <h1>${aiData.planName}</h1>
-    <p>Personalized Diet Plan for ${clientDetails.name}
-      <span class="week-badge">Week ${plan.week_number || '--'}</span>
-    </p>
-  </div>
-
-  <!-- Client KYC Details -->
-  <div class="client-details">
-    <h3>📋 Client Details</h3>
-    <div class="client-details-grid">
-      <div><span>Name:</span> ${clientDetails.name}</div>
-      <div><span>Age:</span> ${clientDetails.age} years</div>
-      <div><span>Gender:</span> ${clientDetails.gender}</div>
-      <div><span>Height/Weight:</span> ${clientDetails.height}cm / ${clientDetails.weight}kg</div>
-      <div><span>Skin Type:</span> ${clientDetails.skinType}</div>
-      <div><span>Hair Type:</span> ${clientDetails.hairType}</div>
-      <div><span>Goal:</span> ${clientDetails.goal}</div>
-      <div><span>Diet Preference:</span> ${clientDetails.dietPreference}</div>
-    </div>
-    ${clientDetails.healthConditions.length > 0 ? `
-    <div class="health-conditions">
-      <h4>Health Conditions:</h4>
-      ${clientDetails.healthConditions.map(condition => `<span class="condition-badge">${condition}</span>`).join('')}
-    </div>` : ''}
-    ${clientDetails.notes ? `
-    <div class="client-notes">
-      <h4>Notes:</h4>
-      <p>${clientDetails.notes}</p>
-    </div>` : ''}
-  </div>
-
-  <div class="intro">
-    <p>${escapeHtml(aiData.introMessage || '')}</p>
-  </div>
-
-  ${aiData.affirmations?.length ? `
-  <div class="affirmations">
-    <h3>Positive Affirmations for ${clientDetails.name}:</h3>
-    <ul>
-      ${aiData.affirmations.map((a: string) => `<li>${a}</li>`).join('')}
-    </ul>
-  </div>` : ''}
-
-  ${aiData.dayGroups?.map((group: any) => `
-    <h3 class="section-title">📅 ${group.label}${group.dates ? ` <span style="font-size: 12px; color: #666; font-weight: normal;">(${group.dates})</span>` : ''}</h3>
-    <table>
-      <thead>
-        <tr>
-          <th style="width: 13%;">Period</th>
-          <th style="width: 8%;">Time</th>
-          <th style="width: 32%;">Food Plan</th>
-          <th style="width: 28%;">Alternative</th>
-          <th style="width: 14%;">Notes</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${group.meals?.map((meal: any) => `
-          <tr>
-            <td>${meal.period || '-'}</td>
-            <td>${meal.time || '-'}</td>
-            <td>${meal.foodPlan || '-'}</td>
-            <td>${meal.alternative || '-'}</td>
-            <td>${meal.notes || '-'}</td>
-          </tr>
-        `).join('') || ''}
-      </tbody>
-    </table>
-  `).join('') || ''}
-
-  <h3 class="section-title">Additional Guidelines</h3>
-  
-  <div class="important-notes" style="background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 5px; padding: 15px; margin-bottom: 20px;">
-    <strong>Serving Size:</strong> ${aiData.servingSize || '1 bowl is 250ml, 1 cup 150ml, 1 katori 100ml'}
-  </div>
-
-  ${aiData.oilGuidelines ? `
-  <div>
-    <h4 style="font-size: 11px; color: #333; margin-bottom: 6px;">Use of Oils:</h4>
-    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 15px;">
-      <div style="background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 5px; padding: 10px;">
-        <h4 style="font-size: 10px; margin-bottom: 5px;">Cooking - Group A</h4>
-        <ul style="list-style:none;padding:0;margin:0;font-size:9px;">${(aiData.oilGuidelines.cooking?.groupA || []).map((o: string) => `<li>- ${o}</li>`).join('')}</ul>
-      </div>
-      <div style="background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 5px; padding: 10px;">
-        <h4 style="font-size: 10px; margin-bottom: 5px;">Cooking - Group B</h4>
-        <ul style="list-style:none;padding:0;margin:0;font-size:9px;">${(aiData.oilGuidelines.cooking?.groupB || []).map((o: string) => `<li>- ${o}</li>`).join('')}</ul>
-      </div>
-      <div style="background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 5px; padding: 10px;">
-        <h4 style="font-size: 10px; margin-bottom: 5px;">Raw/Topping</h4>
-        <ul style="list-style:none;padding:0;margin:0;font-size:9px;">${(aiData.oilGuidelines.raw || []).map((o: string) => `<li>- ${o}</li>`).join('')}</ul>
-      </div>
-      <div style="background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 5px; padding: 10px;">
-        <h4 style="font-size: 10px; margin-bottom: 5px;">Deep Frying</h4>
-        <ul style="list-style:none;padding:0;margin:0;font-size:9px;">${(aiData.oilGuidelines.deepFrying || []).map((o: string) => `<li>- ${o}</li>`).join('')}</ul>
-      </div>
-    </div>
-    <p style="font-size: 9px; color: #666; font-style: italic; margin: 0;">${aiData.oilGuidelines.note || ''}</p>
-  </div>` : ''}
-
-  ${aiData.importantNotes?.length ? `
-  <div class="important-notes">
-    <h4>⚠️ Important Notes:</h4>
-    <ul>
-      ${aiData.importantNotes.map((n: string) => `<li>${n}</li>`).join('')}
-    </ul>
-  </div>` : ''}
-
-  <div class="tips-grid">
-    ${aiData.skinCareTips ? `
-    <div class="tip-card">
-      <h4>🌸 Skin Care Tips</h4>
-      <p>${aiData.skinCareTips}</p>
-    </div>` : ''}
-    ${aiData.hairCareTips ? `
-    <div class="tip-card">
-      <h4>💇 Hair Care Tips</h4>
-      <p>${aiData.hairCareTips}</p>
-    </div>` : ''}
-    ${aiData.healthNotes ? `
-    <div class="tip-card">
-      <h4>🏥 Health Notes</h4>
-      <p>${aiData.healthNotes}</p>
-    </div>` : ''}
-    <div class="tip-card">
-      <h4>💊 Recommended Supplements</h4>
-      <p>${aiData.supplements || 'No supplements specified'}</p>
-    </div>
-  </div>
-
-  ${aiData.weeklyGroceryList?.length ? `
-  <div class="important-notes" style="background: #f0f7ff; border: 1px solid #b3d1ff; border-radius: 8px; padding: 15px; margin-bottom: 20px;">
-    <h4 style="color: #1a5fb4; font-size: 14px; margin-bottom: 10px;">🛍️ Weekly Grocery List</h4>
-    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;">
-      ${aiData.weeklyGroceryList.map((cat: any) => `
-        <div style="background: white; border: 1px solid #dee2e6; border-radius: 5px; padding: 10px;">
-          <h4 style="font-size: 11px; margin-bottom: 5px; color: #1a5fb4;">${cat.category}</h4>
-          <ul style="margin: 0; padding-left: 15px; font-size: 9px;">
-            ${cat.items.map((item: string) => `<li>${item}</li>`).join('')}
-          </ul>
-        </div>
-      `).join('')}
-    </div>
-  </div>` : ''}
-
-  ${aiData.disclaimer ? `
-  <div class="important-notes">
-    <p><strong>Disclaimer:</strong> ${aiData.disclaimer}</p>
-  </div>` : ''}
-
-  <div class="footer">
-    <p>© 2026 Dr. Malika Kabra Rathi - Personalized Nutrition Plan</p>
-  </div>
-</body>
-</html>`;
-
-    const w = window.open('', '_blank');
-    if (w) { 
-      w.document.write(content); 
-      w.document.close(); 
-      w.print(); 
-    }
-    toast.success('PDF generated with consistent formatting!');
-  };
-
-  // Utility function to calculate age
-  const calculateAge = (dateOfBirth: string) => {
-    const birthDate = new Date(dateOfBirth);
-    const today = new Date();
-    let age = today.getFullYear() - birthDate.getFullYear();
-    const monthDiff = today.getMonth() - birthDate.getMonth();
-    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
-      age--;
-    }
-    return age;
+    openDietPlanForPrint(plan);
+    toast.success('PDF opened — use browser print / Save as PDF');
   };
 
   if (isLoading) {
@@ -571,7 +322,7 @@ const SavedDietPlans = () => {
                     <Button
                       variant="default"
                       size="sm"
-                      onClick={() => publishPlan.mutate({ planId: plan.id })}
+                      onClick={() => publishPlan.mutate({ planId: plan.id, plan })}
                       disabled={publishPlan.isPending}
                       title="Make visible in client app"
                     >
@@ -586,7 +337,6 @@ const SavedDietPlans = () => {
                     <Trash2 className="h-4 w-4" />
                   </Button>
                   </div>
-                  <DietPlanPdfManager planId={plan.id} clientId={plan.client_id} />
                 </div>
               </div>
             </Card>
