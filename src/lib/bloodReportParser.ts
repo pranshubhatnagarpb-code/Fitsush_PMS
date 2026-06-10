@@ -1,8 +1,10 @@
-// Blood report parser — calls the local Express server endpoint `/api/extract-blood-report`
+// Blood report parser — calls the Supabase edge function `extract-blood-report`
 // which uses OpenAI Vision API server-side to extract real values from the uploaded report.
 //
-// This file no longer does any client-side PDF/text parsing or guessing.
+// The edge function handles one file at a time. For multiple files, we call it once
+// per file and merge results — first non-null value for each marker wins.
 // Missing values come back as null and are NEVER substituted with defaults.
+import { supabase } from '@/integrations/supabase/client';
 import { BLOOD_MARKERS, BloodMarkerKey } from './bloodMarkers';
 
 export type ExtractedValues = Partial<Record<BloodMarkerKey, number>>;
@@ -27,53 +29,22 @@ const emptyResult = (warnings: string[]): ExtractionResult => ({
   values: {},
   markers: {},
   reportDate: null,
-  labName: null, 
+  labName: null,
   notes: null,
   warnings,
 });
 
-export const extractFromFile = async (file: File): Promise<ExtractionResult> => {
-  return extractFromFiles([file]);
-};
-
-export const extractFromFiles = async (files: File[]): Promise<ExtractionResult> => {
-  // Validate all files
-  for (const file of files) {
-    const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
-    const isImage = file.type.startsWith('image/');
-    if (!isPdf && !isImage) {
-      return emptyResult([`Unsupported file type: ${file.name}. Please upload only images (JPG, PNG, etc).`]);
-    }
-  }
-
+async function extractSingleFile(file: File): Promise<ExtractionResult> {
   const formData = new FormData();
-  files.forEach(file => {
-    formData.append('files', file);
-  });
+  formData.append('file', file);
 
-  const response = await fetch('/api/extract-blood-report', {
-    method: 'POST',
+  const { data, error } = await supabase.functions.invoke('extract-blood-report', {
     body: formData,
   });
 
-  if (!response.ok) {
-    let errorData;
-    try {
-      errorData = await response.json();
-    } catch (parseError) {
-      throw new Error(`Server error: ${response.status} ${response.statusText}`);
-    }
-    throw new Error(errorData.error || 'Extraction request failed');
-  }
-
-  const data = await response.json();
-  
-  if (!data) {
-    return emptyResult(['Empty response from extraction service.']);
-  }
-  if ((data as any).error) {
-    throw new Error((data as any).error);
-  }
+  if (error) throw new Error(error.message || 'Extraction request failed');
+  if (!data) return emptyResult(['Empty response from extraction service.']);
+  if ((data as any).error) throw new Error((data as any).error);
 
   const markersRaw = ((data as any).markers || {}) as Record<string, ExtractedMarker>;
   const values: ExtractedValues = {};
@@ -88,17 +59,48 @@ export const extractFromFiles = async (files: File[]): Promise<ExtractionResult>
     }
   }
 
-  const warnings: string[] = Array.isArray((data as any).warnings) ? (data as any).warnings : [];
-  if (Object.keys(values).length === 0 && warnings.length === 0) {
-    warnings.push('No biomarker values were detected in these reports. Please review and enter them manually.');
-  }
-
   return {
     values,
     markers,
     reportDate: (data as any).reportDate ?? null,
     labName: (data as any).labName ?? null,
     notes: (data as any).notes ?? null,
-    warnings,
+    warnings: Array.isArray((data as any).warnings) ? (data as any).warnings : [],
   };
+}
+
+export const extractFromFile = async (file: File): Promise<ExtractionResult> => {
+  return extractFromFiles([file]);
+};
+
+export const extractFromFiles = async (files: File[]): Promise<ExtractionResult> => {
+  for (const file of files) {
+    const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
+    const isImage = file.type.startsWith('image/');
+    if (!isPdf && !isImage) {
+      return emptyResult([`Unsupported file type: ${file.name}. Please upload PDF or image files only.`]);
+    }
+  }
+
+  // Call the edge function once per file and merge — first non-null value for each marker wins.
+  const merged: ExtractionResult = emptyResult([]);
+  for (const file of files) {
+    const result = await extractSingleFile(file);
+    merged.warnings.push(...result.warnings);
+    if (!merged.reportDate && result.reportDate) merged.reportDate = result.reportDate;
+    if (!merged.labName && result.labName) merged.labName = result.labName;
+    if (!merged.notes && result.notes) merged.notes = result.notes;
+    for (const key of Object.keys(result.values) as BloodMarkerKey[]) {
+      if (merged.values[key] == null) {
+        merged.values[key] = result.values[key];
+        if (result.markers[key]) merged.markers[key] = result.markers[key];
+      }
+    }
+  }
+
+  if (Object.keys(merged.values).length === 0 && merged.warnings.length === 0) {
+    merged.warnings.push('No biomarker values were detected. Please review and enter them manually.');
+  }
+
+  return merged;
 };
