@@ -50,8 +50,6 @@ const Templates = () => {
   const updateTemplate = useUpdateTemplate();
   const deleteTemplate = useDeleteTemplate();
 
-  const { drafts, saveDraft, getDraft, clearDraft, hasDraft } = useDraftRecovery('template');
-
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [isViewOpen, setIsViewOpen] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<DietChartTemplate | null>(null);
@@ -787,25 +785,7 @@ const Templates = () => {
                             )}
                           </td>
                           {days.map((day, dayIdx) => {
-                            // Ensure meal exists at this index - if not, create it immediately
-                            let meal = day.meals[mealTimeIdx];
-                            if (!meal) {
-                              console.log(`Meal missing at index ${mealTimeIdx} for day ${dayIdx}, creating it`);
-                              // Create the missing meal immediately to ensure state connection
-                              setDays(prevDays => 
-                                prevDays.map((d, i) => {
-                                  if (i === dayIdx) {
-                                    const updatedMeals = [...d.meals];
-                                    while (updatedMeals.length <= mealTimeIdx) {
-                                      updatedMeals.push({ time: '', meal: '', alternatives: '', notes: '' });
-                                    }
-                                    return { ...d, meals: updatedMeals };
-                                  }
-                                  return d;
-                                })
-                              );
-                              meal = { time: '', meal: '', alternatives: '', notes: '' };
-                            }
+                            const meal = day.meals[mealTimeIdx] || { time: '', meal: '', alternatives: '', notes: '' };
                             return (
                               <td key={dayIdx} className="p-2 border-l">
                                 <div className="space-y-1">
