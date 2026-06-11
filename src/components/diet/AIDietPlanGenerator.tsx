@@ -16,8 +16,6 @@ import { FunctionsHttpError } from '@supabase/supabase-js';
 import { Client } from '@/hooks/useClients';
 import { useDietChartTemplates, useCreateTemplate, type DietChartTemplate, type TemplateDay, type TemplateMeal } from '@/hooks/useDietChartTemplates';
 import { format, addDays, startOfWeek } from 'date-fns';
-import jsPDF from 'jspdf';
-import html2canvas from 'html2canvas';
 
 interface MealItem {
   period: string;
@@ -1448,19 +1446,31 @@ export const AIDietPlanGenerator = ({ clients, editModeData, onClose }: Props) =
     return `${period} (${time})`;
   };
 
-  const normalizeMealName = (s: string) =>
-    (s || '').toLowerCase().replace(/[^a-z0-9]+/g, '').trim();
+  // Normalize to space-separated lowercase words (strips quotes and other punctuation)
+  const normalizeMealName = (s: string): string =>
+    (s || '').replace(/['"]/g, '')   // strip literal quote chars stored in DB
+      .toLowerCase()
+      .replace(/[^a-z0-9\s]+/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
 
-  const extractMealCandidates = (): string[] => {
-    if (!generatedPlan) return [];
+  // Returns set of words for a normalized string, filtering stop-words too short to be meaningful
+  const toWordSet = (normalized: string): Set<string> =>
+    new Set(normalized.split(' ').filter(w => w.length >= 2));
+
+  const extractMealCandidates = (plan?: typeof generatedPlan): string[] => {
+    const activePlan = plan ?? generatedPlan;
+    if (!activePlan) return [];
     const raw: string[] = [];
-    generatedPlan.dayGroups.forEach(dg => {
+    activePlan.dayGroups.forEach(dg => {
       dg.meals.forEach(m => {
         [m.foodPlan, m.alternative].forEach(text => {
           if (!text) return;
-          // split on common separators
           text.split(/\n|,|;|\/|\+|\bor\b|\band\b|\bwith\b/i).forEach(piece => {
-            const cleaned = piece.replace(/\(.*?\)/g, '').replace(/\d+\s*(g|ml|gm|kg|tsp|tbsp|cup|cups|pcs|piece|pieces|bowl|glass)\b/gi, '').trim();
+            const cleaned = piece
+              .replace(/\(.*?\)/g, '')
+              .replace(/\d+\s*(g|ml|gm|kg|tsp|tbsp|cup|cups|pcs|piece|pieces|bowl|glass)\b/gi, '')
+              .trim();
             if (cleaned.length >= 3) raw.push(cleaned);
           });
         });
@@ -1475,24 +1485,41 @@ export const AIDietPlanGenerator = ({ clients, editModeData, onClose }: Props) =
     return result;
   };
 
-  const fetchMatchedRecipes = async (): Promise<Array<{ Meal_name: string; Ingredients: string; Instructions: string; Remarks: string }>> => {
-    const candidates = extractMealCandidates();
+  const fetchMatchedRecipes = async (plan?: typeof generatedPlan): Promise<Array<{ Meal_name: string; Ingredients: string; Instructions: string; Remarks: string }>> => {
+    const candidates = extractMealCandidates(plan);
     if (candidates.length === 0) return [];
-    const { data, error } = await supabase
-      .from('meal_recipes')
-      .select('Meal_name, meal_name_normalized, Ingredients, Instructions, Remarks')
-      .limit(5000);
-    if (error || !data) return [];
+
+    // Paginate because Supabase caps responses at 1000 rows per request
+    type RecipeRow = { Meal_name: string; Ingredients: string; Instructions: string; Remarks: string };
+    const allData: RecipeRow[] = [];
+    const batchSize = 1000;
+    let from = 0;
+    while (true) {
+      const { data, error } = await supabase
+        .from('meal_recipes')
+        .select('Meal_name, Ingredients, Instructions, Remarks')
+        .range(from, from + batchSize - 1);
+      if (error || !data || data.length === 0) break;
+      allData.push(...(data as RecipeRow[]));
+      if (data.length < batchSize) break;
+      from += batchSize;
+    }
+    if (allData.length === 0) return [];
+
     const seen = new Set<string>();
-    const out: Array<{ Meal_name: string; Ingredients: string; Instructions: string; Remarks: string }> = [];
-    // Preserve order of first appearance in plan
-    candidates.forEach(c => {
-      const match = data.find(r => {
-        const recipeKey = r.meal_name_normalized;
-        return c === recipeKey || c.includes(recipeKey) || recipeKey.includes(c);
+    const out: RecipeRow[] = [];
+
+    candidates.forEach(candidate => {
+      const candidateWords = toWordSet(candidate);
+      const match = allData.find(r => {
+        const recipeWords = toWordSet(normalizeMealName(r.Meal_name));
+        if (recipeWords.size === 0) return false;
+        // Match if candidate words contain all recipe words, OR recipe words contain all candidate words
+        return [...recipeWords].every(w => candidateWords.has(w)) ||
+               [...candidateWords].every(w => recipeWords.has(w));
       });
-      if (match && !seen.has(match.meal_name_normalized)) {
-        seen.add(match.meal_name_normalized);
+      if (match && !seen.has(match.Meal_name)) {
+        seen.add(match.Meal_name);
         out.push({
           Meal_name: match.Meal_name,
           Ingredients: match.Ingredients || '',
@@ -1572,7 +1599,26 @@ export const AIDietPlanGenerator = ({ clients, editModeData, onClose }: Props) =
       }
     };
 
-    const dayGroupTables = generatedPlan.dayGroups.map(group => `
+    // Apply any pending cell edit so the PDF reflects what the user typed even if they didn't click ✓
+    const effectivePlan = editingCell && editValue.trim()
+      ? {
+          ...generatedPlan,
+          dayGroups: generatedPlan.dayGroups.map((dg, dayIdx) =>
+            dayIdx === editingCell.dayIdx
+              ? {
+                  ...dg,
+                  meals: dg.meals.map((m, mealIdx) =>
+                    mealIdx === editingCell.mealTimeIdx
+                      ? { ...m, [editingCell.field]: editValue.trim() }
+                      : m
+                  ),
+                }
+              : dg
+          ),
+        }
+      : generatedPlan;
+
+    const dayGroupTables = effectivePlan.dayGroups.map(group => `
       <h3 style="font-size: 14px; color: #5a7a32; font-weight: 700; margin: 18px 0 8px; padding-bottom: 4px; border-bottom: 1px solid #d4e4bc;">${group.label}${group.dates ? ` <span style="font-size: 12px; color: #666; font-weight: normal;">(${group.dates})</span>` : ''}</h3>
       <table>
         <thead>
@@ -1777,7 +1823,7 @@ export const AIDietPlanGenerator = ({ clients, editModeData, onClose }: Props) =
   </div>` : ''}
 
   ${(await (async () => {
-    const recipes = await fetchMatchedRecipes();
+    const recipes = await fetchMatchedRecipes(effectivePlan);
     if (recipes.length === 0) return '';
     return `
   <div class="page-break" style="page-break-before: always;"></div>
@@ -2906,10 +2952,11 @@ export const AIDietPlanGenerator = ({ clients, editModeData, onClose }: Props) =
                                 <div className="space-y-1">
                                   {isEditingFoodPlan ? (
                                     <div className="flex flex-col gap-1">
-                                      <Input 
-                                        value={editValue} 
-                                        onChange={e => setEditValue(e.target.value)} 
-                                        className="text-sm h-9 px-3 py-2 min-w-[300px]" 
+                                      <Input
+                                        value={editValue}
+                                        onChange={e => setEditValue(e.target.value)}
+                                        onKeyDown={e => { if (e.key === 'Enter') saveEditCell(); if (e.key === 'Escape') setEditingCell(null); }}
+                                        className="text-sm h-9 px-3 py-2 min-w-[300px]"
                                         autoFocus
                                       />
                                       <div className="flex gap-1">
@@ -2918,8 +2965,8 @@ export const AIDietPlanGenerator = ({ clients, editModeData, onClose }: Props) =
                                       </div>
                                     </div>
                                   ) : (
-                                    <div 
-                                      className="cursor-pointer hover:text-primary hover:bg-muted/30 px-1 py-0.5 rounded transition-colors" 
+                                    <div
+                                      className="cursor-pointer hover:text-primary hover:bg-muted/30 px-1 py-0.5 rounded transition-colors"
                                       onClick={() => startEditCell(mealTimeIdx, dayIdx, 'foodPlan')}
                                     >
                                       {meal.foodPlan || '-'} <Pencil className="h-2.5 w-2.5 inline ml-0.5 text-muted-foreground" />
@@ -2928,10 +2975,11 @@ export const AIDietPlanGenerator = ({ clients, editModeData, onClose }: Props) =
                                   
                                   {isEditingAlternative ? (
                                     <div className="flex flex-col gap-1">
-                                      <Input 
-                                        value={editValue} 
-                                        onChange={e => setEditValue(e.target.value)} 
-                                        className="text-sm h-9 px-3 py-2 min-w-[300px]" 
+                                      <Input
+                                        value={editValue}
+                                        onChange={e => setEditValue(e.target.value)}
+                                        onKeyDown={e => { if (e.key === 'Enter') saveEditCell(); if (e.key === 'Escape') setEditingCell(null); }}
+                                        className="text-sm h-9 px-3 py-2 min-w-[300px]"
                                         autoFocus
                                       />
                                       <div className="flex gap-1">
@@ -2940,8 +2988,8 @@ export const AIDietPlanGenerator = ({ clients, editModeData, onClose }: Props) =
                                       </div>
                                     </div>
                                   ) : (
-                                    <div 
-                                      className="cursor-pointer hover:text-primary hover:bg-muted/30 px-1 py-0.5 rounded transition-colors text-muted-foreground text-xs" 
+                                    <div
+                                      className="cursor-pointer hover:text-primary hover:bg-muted/30 px-1 py-0.5 rounded transition-colors text-muted-foreground text-xs"
                                       onClick={() => startEditCell(mealTimeIdx, dayIdx, 'alternative')}
                                     >
                                       {meal.alternative || '-'} <Pencil className="h-2.5 w-2.5 inline ml-0.5 text-muted-foreground" />
@@ -2950,10 +2998,11 @@ export const AIDietPlanGenerator = ({ clients, editModeData, onClose }: Props) =
                                   
                                   {isEditingNotes ? (
                                     <div className="flex flex-col gap-1">
-                                      <Input 
-                                        value={editValue} 
-                                        onChange={e => setEditValue(e.target.value)} 
-                                        className="text-sm h-9 px-3 py-2 min-w-[300px]" 
+                                      <Input
+                                        value={editValue}
+                                        onChange={e => setEditValue(e.target.value)}
+                                        onKeyDown={e => { if (e.key === 'Enter') saveEditCell(); if (e.key === 'Escape') setEditingCell(null); }}
+                                        className="text-sm h-9 px-3 py-2 min-w-[300px]"
                                         autoFocus
                                       />
                                       <div className="flex gap-1">
@@ -2962,8 +3011,8 @@ export const AIDietPlanGenerator = ({ clients, editModeData, onClose }: Props) =
                                       </div>
                                     </div>
                                   ) : (
-                                    <div 
-                                      className="cursor-pointer hover:text-primary hover:bg-muted/30 px-1 py-0.5 rounded transition-colors text-xs" 
+                                    <div
+                                      className="cursor-pointer hover:text-primary hover:bg-muted/30 px-1 py-0.5 rounded transition-colors text-xs"
                                       onClick={() => startEditCell(mealTimeIdx, dayIdx, 'notes')}
                                     >
                                       {meal.notes || '-'} <Pencil className="h-2.5 w-2.5 inline ml-0.5 text-muted-foreground" />

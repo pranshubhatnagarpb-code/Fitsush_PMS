@@ -179,8 +179,8 @@ const SavedDietPlans = () => {
     }
   };
 
-  const handleDownloadPDF = (plan: any) => {
-    openDietPlanForPrint(plan);
+  const handleDownloadPDF = async (plan: any) => {
+    await openDietPlanForPrint(plan);
     toast.success('PDF opened — use browser print / Save as PDF');
   };
 

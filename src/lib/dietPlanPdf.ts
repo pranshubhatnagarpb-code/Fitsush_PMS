@@ -1,5 +1,86 @@
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
+import { supabase } from '@/integrations/supabase/client';
+
+// ---------------------------------------------------------------------------
+// Recipe matching helpers (mirrors AIDietPlanGenerator logic)
+// ---------------------------------------------------------------------------
+
+function normalizeMealName(s: string): string {
+  return (s || '').replace(/['"]/g, '').toLowerCase().replace(/[^a-z0-9\s]+/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+function toWordSet(normalized: string): Set<string> {
+  return new Set(normalized.split(' ').filter(w => w.length >= 2));
+}
+
+async function fetchRecipesForAIPlan(
+  aiData: any,
+): Promise<Array<{ Meal_name: string; Ingredients: string; Instructions: string; Remarks: string }>> {
+  const raw: string[] = [];
+  ((aiData.dayGroups ?? []) as any[]).forEach((dg: any) => {
+    ((dg.meals ?? []) as any[]).forEach((m: any) => {
+      [m.foodPlan, m.alternative].forEach((text: string) => {
+        if (!text) return;
+        text.split(/\n|,|;|\/|\+|\bor\b|\band\b|\bwith\b/i).forEach((piece: string) => {
+          const cleaned = piece
+            .replace(/\(.*?\)/g, '')
+            .replace(/\d+\s*(g|ml|gm|kg|tsp|tbsp|cup|cups|pcs|piece|pieces|bowl|glass)\b/gi, '')
+            .trim();
+          if (cleaned.length >= 3) raw.push(cleaned);
+        });
+      });
+    });
+  });
+
+  const seen = new Set<string>();
+  const candidates: string[] = [];
+  raw.forEach(r => {
+    const n = normalizeMealName(r);
+    if (n && !seen.has(n)) { seen.add(n); candidates.push(n); }
+  });
+
+  if (candidates.length === 0) return [];
+
+  // Paginate because Supabase caps responses at 1000 rows per request
+  type RecipeRow = { Meal_name: string; Ingredients: string; Instructions: string; Remarks: string };
+  const allData: RecipeRow[] = [];
+  const batchSize = 1000;
+  let from = 0;
+  while (true) {
+    const { data, error } = await supabase
+      .from('meal_recipes')
+      .select('Meal_name, Ingredients, Instructions, Remarks')
+      .range(from, from + batchSize - 1);
+    if (error || !data || data.length === 0) break;
+    allData.push(...(data as RecipeRow[]));
+    if (data.length < batchSize) break;
+    from += batchSize;
+  }
+  if (allData.length === 0) return [];
+
+  const matched = new Set<string>();
+  const out: RecipeRow[] = [];
+  candidates.forEach(candidate => {
+    const candidateWords = toWordSet(candidate);
+    const match = allData.find(r => {
+      const recipeWords = toWordSet(normalizeMealName(r.Meal_name));
+      if (recipeWords.size === 0) return false;
+      return [...recipeWords].every(w => candidateWords.has(w)) ||
+             [...candidateWords].every(w => recipeWords.has(w));
+    });
+    if (match && !matched.has(match.Meal_name)) {
+      matched.add(match.Meal_name);
+      out.push({
+        Meal_name: match.Meal_name,
+        Ingredients: match.Ingredients || '',
+        Instructions: match.Instructions || '',
+        Remarks: match.Remarks || '',
+      });
+    }
+  });
+  return out;
+}
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -22,7 +103,10 @@ function escapeHtml(str: string): string {
 // HTML builder — shared by both download and auto-publish PDF flows
 // ---------------------------------------------------------------------------
 
-export function buildDietPlanHtml(plan: any): string {
+export function buildDietPlanHtml(
+  plan: any,
+  recipes: Array<{ Meal_name: string; Ingredients: string; Instructions: string; Remarks: string }> = [],
+): string {
   const isAI = plan.is_ai_generated && plan.ai_plan_data;
   const clientDetails = {
     name: plan.clients?.name || 'Client',
@@ -219,6 +303,19 @@ export function buildDietPlanHtml(plan: any): string {
     <p><strong>Disclaimer:</strong> ${aiData.disclaimer}</p>
   </div>` : ''}
 
+  ${recipes.length > 0 ? `
+  <div style="page-break-before: always; margin-top: 24px;">
+    <h2 style="color: #5a7a32; font-size: 18px; border-bottom: 2px solid #5a7a32; padding-bottom: 6px; margin-bottom: 14px;">Recipes for mentioned meals</h2>
+    ${recipes.map(r => `
+      <div style="margin-bottom: 16px; page-break-inside: avoid;">
+        <h3 style="color: #1a5fb4; font-size: 13px; margin-bottom: 6px;">${r.Meal_name}</h3>
+        ${r.Ingredients ? `<div style="font-size: 11px; line-height: 1.5; color: #333; margin-bottom: 6px;"><strong>Ingredients:</strong><br/><span style="white-space: pre-wrap;">${r.Ingredients}</span></div>` : ''}
+        <div style="font-size: 11px; line-height: 1.5; color: #333; margin-bottom: 6px;"><strong>Instructions:</strong><br/><span style="white-space: pre-wrap;">${r.Instructions}</span></div>
+        ${r.Remarks ? `<div style="font-size: 11px; line-height: 1.5; color: #555;"><strong>Remarks:</strong><br/><span style="white-space: pre-wrap;">${r.Remarks}</span></div>` : ''}
+      </div>
+    `).join('')}
+  </div>` : ''}
+
   <div class="footer">
     <p>© ${new Date().getFullYear()} Dr. Malika Kabra Rathi - Personalized Nutrition Plan</p>
   </div>
@@ -282,8 +379,10 @@ export function buildDietPlanHtml(plan: any): string {
 // Opens the plan in a new tab for browser print / Save as PDF
 // ---------------------------------------------------------------------------
 
-export function openDietPlanForPrint(plan: any): void {
-  const html = buildDietPlanHtml(plan);
+export async function openDietPlanForPrint(plan: any): Promise<void> {
+  const isAI = plan.is_ai_generated && plan.ai_plan_data;
+  const recipes = isAI ? await fetchRecipesForAIPlan(plan.ai_plan_data) : [];
+  const html = buildDietPlanHtml(plan, recipes);
   if (!html) return;
   const w = window.open('', '_blank');
   if (w) {
