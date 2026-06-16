@@ -10,10 +10,9 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Badge } from '@/components/ui/badge';
 import { useActiveClients } from '@/hooks/useClients';
 import { BloodReportInput, BloodReportWithClient } from '@/hooks/useBloodReports';
-import { BLOOD_MARKERS, BloodMarkerKey, getMarkerStatus, STATUS_BADGE_CLASS } from '@/lib/bloodMarkers';
+import { BLOOD_MARKERS, BloodMarkerKey } from '@/lib/bloodMarkers';
 import { extractFromFiles, ExtractedValues } from '@/lib/bloodReportParser';
 import { Upload, Loader2, FileText } from 'lucide-react';
 import { toast } from 'sonner';
@@ -229,17 +228,10 @@ export const BloodReportFormDialog = ({ open, onOpenChange, report, defaultClien
                 <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground/80">{group}</div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                   {markers.map((m) => {
-                    const numeric = parseOptionalNumber(values[m.key]);
-                    const status = getMarkerStatus(m.key, numeric);
                     return (
                       <div key={m.key} className="space-y-1.5">
                         <div className="flex items-center justify-between gap-2">
                           <Label htmlFor={m.key} className="text-xs">{m.label} <span className="text-muted-foreground">({m.unit})</span></Label>
-                          {numeric !== null && status !== 'unknown' && (
-                            <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${STATUS_BADGE_CLASS[status]}`}>
-                              {status}
-                            </Badge>
-                          )}
                         </div>
                         <Input
                           id={m.key}

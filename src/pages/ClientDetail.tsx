@@ -17,6 +17,7 @@ import {
   type ProgressEntry,
 } from '@/hooks/useClientDetail';
 import { useUpdateClient } from '@/hooks/useClients';
+import { ClientMeasurementsPanel } from '@/components/clients/ClientMeasurementsPanel';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -781,6 +782,7 @@ const ClientDetail = () => {
             Progress {progressEntries.length > 0 && <span className="ml-1.5 rounded-full bg-primary/15 px-1.5 text-[10px] font-medium text-primary">{progressEntries.length}</span>}
           </TabsTrigger>
           <TabsTrigger value="trends">Trends</TabsTrigger>
+          <TabsTrigger value="measurements">Body Measurements</TabsTrigger>
         </TabsList>
 
         <TabsContent value="profile">
@@ -821,6 +823,10 @@ const ClientDetail = () => {
 
         <TabsContent value="trends">
           <TrendsTab entries={progressEntries} />
+        </TabsContent>
+
+        <TabsContent value="measurements">
+          <ClientMeasurementsPanel clientId={id!} clientName={client?.name ?? ''} />
         </TabsContent>
       </Tabs>
     </DashboardLayout>

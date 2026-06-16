@@ -18,7 +18,7 @@ import {
   useDeleteBloodReport,
   useUpdateBloodReport,
 } from '@/hooks/useBloodReports';
-import { BLOOD_MARKERS, BLOOD_MARKER_MAP, BloodMarkerKey, getMarkerStatus, STATUS_BADGE_CLASS } from '@/lib/bloodMarkers';
+import { BLOOD_MARKER_MAP, BloodMarkerKey } from '@/lib/bloodMarkers';
 import { Home, ChevronRight, FlaskConical, Plus, Pencil, Trash2, Activity, Droplets, HeartPulse } from 'lucide-react';
 import { toast } from 'sonner';
 import {
@@ -104,16 +104,8 @@ const BloodReports = () => {
 
   const renderMarkerCell = (item: BloodReportWithClient, key: BloodMarkerKey) => {
     const v = item.values ? (item.values as any)[key] : null;
-    const status = getMarkerStatus(key, v);
     if (v === null || v === undefined) return <span className="text-muted-foreground">—</span>;
-    return (
-      <div className="flex items-center gap-1.5">
-        <span className="font-medium">{v}</span>
-        {status !== 'unknown' && status !== 'normal' && (
-          <Badge variant="outline" className={`text-[10px] px-1 py-0 ${STATUS_BADGE_CLASS[status]}`}>{status}</Badge>
-        )}
-      </div>
-    );
+    return <span className="font-medium">{v}</span>;
   };
 
   const columns = [
