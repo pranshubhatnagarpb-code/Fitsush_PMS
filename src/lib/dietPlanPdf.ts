@@ -83,6 +83,62 @@ async function fetchRecipesForAIPlan(
 }
 
 // ---------------------------------------------------------------------------
+// Affiliate product matching — based on weekly grocery list
+// ---------------------------------------------------------------------------
+
+function normalizeProductName(s: string): string {
+  return (s || '').toLowerCase().replace(/[^a-z0-9]+/g, '').trim();
+}
+
+async function fetchAffiliateProductsForPlan(
+  aiData: any,
+): Promise<Array<{ product_name: string; link: string }>> {
+  const groceryNorms = new Set<string>();
+  ((aiData.weeklyGroceryList ?? []) as any[]).forEach((cat: any) => {
+    ((cat.items ?? []) as string[]).forEach((item) => {
+      const cleaned = item
+        .replace(/\(.*?\)/g, '')
+        .replace(/\d+\s*(g|ml|gm|kg|l|tsp|tbsp|cup|cups|pcs|piece|pieces|jar|jars|bottle|bottles|pack|packs|sachet|sachets|bowl|glass)\b/gi, '')
+        .trim();
+      const n = normalizeProductName(cleaned);
+      if (n.length >= 2) groceryNorms.add(n);
+    });
+  });
+
+  if (groceryNorms.size === 0) return [];
+
+  type ProductRow = { product_name: string; link: string; product_name_normalized: string };
+  const allData: ProductRow[] = [];
+  const batchSize = 1000;
+  let from = 0;
+  while (true) {
+    const { data, error } = await supabase
+      .from('affiliate_products')
+      .select('product_name, link, product_name_normalized')
+      .range(from, from + batchSize - 1);
+    if (error || !data || data.length === 0) break;
+    allData.push(...(data as ProductRow[]));
+    if (data.length < batchSize) break;
+    from += batchSize;
+  }
+  if (allData.length === 0) return [];
+
+  const matched: Array<{ product_name: string; link: string }> = [];
+  const seen = new Set<string>();
+  allData.forEach((p) => {
+    const pn = p.product_name_normalized;
+    const isMatch = [...groceryNorms].some(
+      (g) => g === pn || g.includes(pn) || pn.includes(g)
+    );
+    if (isMatch && !seen.has(pn)) {
+      seen.add(pn);
+      matched.push({ product_name: p.product_name, link: p.link });
+    }
+  });
+  return matched;
+}
+
+// ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
@@ -106,6 +162,7 @@ function escapeHtml(str: string): string {
 export function buildDietPlanHtml(
   plan: any,
   recipes: Array<{ Meal_name: string; Ingredients: string; Instructions: string; Remarks: string }> = [],
+  affiliateProducts: Array<{ product_name: string; link: string }> = [],
 ): string {
   const isAI = plan.is_ai_generated && plan.ai_plan_data;
   const clientDetails = {
@@ -316,6 +373,29 @@ export function buildDietPlanHtml(
     `).join('')}
   </div>` : ''}
 
+  ${affiliateProducts.length > 0 ? `
+  <div style="margin-top: 24px; page-break-inside: avoid;">
+    <h2 style="color: #b45309; font-size: 16px; border-bottom: 2px solid #f59e0b; padding-bottom: 6px; margin-bottom: 12px;">🛒 Shop Recommended Products</h2>
+    <table style="width:100%;border-collapse:collapse;font-size:11px;">
+      <thead>
+        <tr>
+          <th style="background:#f59e0b;color:white;padding:7px 10px;text-align:left;width:40%;">Product</th>
+          <th style="background:#f59e0b;color:white;padding:7px 10px;text-align:left;">Buy Link</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${affiliateProducts.map((p, i) => `
+          <tr style="background:${i % 2 === 0 ? '#fffbeb' : '#ffffff'};">
+            <td style="padding:7px 10px;border-bottom:1px solid #fde68a;font-weight:500;">${p.product_name}</td>
+            <td style="padding:7px 10px;border-bottom:1px solid #fde68a;">
+              <a href="${p.link}" style="color:#b45309;text-decoration:underline;word-break:break-all;">${p.link}</a>
+            </td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  </div>` : ''}
+
   <div class="footer">
     <p>© ${new Date().getFullYear()} Dr. Malika Kabra Rathi - Personalized Nutrition Plan</p>
   </div>
@@ -381,8 +461,13 @@ export function buildDietPlanHtml(
 
 export async function openDietPlanForPrint(plan: any): Promise<void> {
   const isAI = plan.is_ai_generated && plan.ai_plan_data;
-  const recipes = isAI ? await fetchRecipesForAIPlan(plan.ai_plan_data) : [];
-  const html = buildDietPlanHtml(plan, recipes);
+  const [recipes, affiliateProducts] = isAI
+    ? await Promise.all([
+        fetchRecipesForAIPlan(plan.ai_plan_data),
+        fetchAffiliateProductsForPlan(plan.ai_plan_data),
+      ])
+    : [[], []];
+  const html = buildDietPlanHtml(plan, recipes, affiliateProducts);
   if (!html) return;
   const w = window.open('', '_blank');
   if (w) {
