@@ -16,6 +16,7 @@ import Templates from "./pages/Templates";
 import Employees from "./pages/Employees";
 import Recipes from "./pages/Recipes";
 import MealRecipesImport from "./pages/MealRecipesImport";
+import AffiliateProductsImport from "./pages/AffiliateProductsImport";
 import Appointments from "./pages/Appointments";
 import BodyMeasurements from "./pages/BodyMeasurements";
 import BloodReports from "./pages/BloodReports";
@@ -47,6 +48,7 @@ const App = () => (
             <Route path="/employees" element={<ProtectedRoute><Employees /></ProtectedRoute>} />
             <Route path="/recipes" element={<ProtectedRoute><Recipes /></ProtectedRoute>} />
             <Route path="/meal-recipes-import" element={<ProtectedRoute><MealRecipesImport /></ProtectedRoute>} />
+            <Route path="/affiliate-products" element={<ProtectedRoute><AffiliateProductsImport /></ProtectedRoute>} />
             <Route path="/measurements" element={<ProtectedRoute><Measurements /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>

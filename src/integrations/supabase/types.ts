@@ -735,6 +735,30 @@ export type Database = {
           },
         ]
       }
+      affiliate_products: {
+        Row: {
+          id: string
+          product_name: string
+          link: string
+          product_name_normalized: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          product_name: string
+          link: string
+          product_name_normalized: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          product_name?: string
+          link?: string
+          product_name_normalized?: string
+          created_at?: string
+        }
+        Relationships: []
+      }
       meal_recipes: {
         Row: {
           created_at: string
