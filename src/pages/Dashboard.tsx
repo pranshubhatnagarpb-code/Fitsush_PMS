@@ -11,7 +11,7 @@ import {
   useAtRiskClients,
 } from '@/hooks/useDashboardData';
 import { useTodaysBirthdays } from '@/hooks/useClients';
-import { Home, ChevronRight } from 'lucide-react';
+import { Home, ChevronRight, Users, TrendingUp } from 'lucide-react';
 import { CreateAppointmentDialog } from '@/components/appointments/CreateAppointmentDialog';
 import { StatusDot } from '@/components/ui/StatusDot';
 
@@ -100,25 +100,34 @@ const Dashboard = () => {
 
   return (
     <DashboardLayout>
-      <div className="flex items-center gap-2 text-sm text-muted-foreground mb-6">
-        <Home className="h-4 w-4" />
-        <ChevronRight className="h-4 w-4" />
+      <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-5">
+        <Home className="h-3.5 w-3.5" />
+        <ChevronRight className="h-3 w-3" />
         <span className="text-foreground font-medium">Dashboard</span>
       </div>
 
-      <h1 className="text-2xl font-bold text-foreground mb-6">Dashboard</h1>
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-xl font-bold text-foreground tracking-tight">Dashboard</h1>
+          <p className="text-xs text-muted-foreground mt-0.5">Overview of your clinic activity</p>
+        </div>
+      </div>
 
       {/* Stats Row */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
         <StatCard
           title="Total Active Clients"
-          value={statsLoading ? '...' : String(stats?.totalActiveClients || 0)}
+          value={statsLoading ? '—' : String(stats?.totalActiveClients || 0)}
           tooltip="Number of currently active clients"
+          icon={<Users className="h-5 w-5" />}
+          iconColor="bg-primary/10 text-primary"
         />
         <StatCard
           title="Service Sales This Month"
-          value={statsLoading ? '...' : String(stats?.serviceSalesThisMonth || 0)}
+          value={statsLoading ? '—' : String(stats?.serviceSalesThisMonth || 0)}
           tooltip="Number of clients onboarded this month with fees"
+          icon={<TrendingUp className="h-5 w-5" />}
+          iconColor="bg-emerald-50 text-emerald-600"
         />
       </div>
 

@@ -12,9 +12,7 @@ const SidebarContext = createContext<SidebarContextType | undefined>(undefined);
 
 export const useSidebar = () => {
   const context = useContext(SidebarContext);
-  if (context === undefined) {
-    throw new Error('useSidebar must be used within a DashboardLayout');
-  }
+  if (context === undefined) throw new Error('useSidebar must be used within a DashboardLayout');
   return context;
 };
 
@@ -26,9 +24,7 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   const { isAuthenticated } = useAuth();
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
-  if (!isAuthenticated) {
-    return <Navigate to="/login" replace />;
-  }
+  if (!isAuthenticated) return <Navigate to="/login" replace />;
 
   return (
     <SidebarContext.Provider value={{ isSidebarOpen, setIsSidebarOpen }}>
@@ -37,7 +33,7 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
         <main className={`transition-all duration-300 min-h-screen ${
           isSidebarOpen ? 'lg:ml-64' : 'lg:ml-0'
         }`}>
-          <div className="p-4 lg:p-8 pt-16 lg:pt-8">
+          <div className="p-5 lg:p-8 pt-16 lg:pt-8">
             {children}
           </div>
         </main>
