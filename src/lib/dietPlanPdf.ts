@@ -83,29 +83,57 @@ async function fetchRecipesForAIPlan(
 }
 
 // ---------------------------------------------------------------------------
-// Affiliate product matching — based on weekly grocery list
+// Affiliate product matching — grocery list + meal items, word-based fuzzy
 // ---------------------------------------------------------------------------
 
-function normalizeProductName(s: string): string {
-  return (s || '').toLowerCase().replace(/[^a-z0-9]+/g, '').trim();
+const AFFILIATE_STOP_WORDS = new Set([
+  'the', 'a', 'an', 'of', 'in', 'for', 'with', 'and', 'or', 'to', 'is',
+  'at', 'by', 'on', 'as', 'up', 'it', 'its',
+]);
+
+function getSignificantWords(s: string): Set<string> {
+  return new Set(
+    (s || '').toLowerCase()
+      .split(/[^a-z0-9]+/)
+      .filter(w => w.length >= 3 && !AFFILIATE_STOP_WORDS.has(w)),
+  );
+}
+
+function cleanIngredientText(s: string): string {
+  return s
+    .replace(/\(.*?\)/g, '')
+    .replace(/\d+\s*(g|ml|gm|kg|l|tsp|tbsp|cup|cups|pcs|piece|pieces|jar|jars|bottle|bottles|pack|packs|sachet|sachets|bowl|glass)\b/gi, '')
+    .trim();
 }
 
 export async function fetchAffiliateProductsForPlan(
   aiData: any,
 ): Promise<Array<{ product_name: string; link: string }>> {
-  const groceryNorms = new Set<string>();
+  // Collect candidate strings from BOTH grocery list and meal items
+  const candidates: string[] = [];
+
+  // 1. Weekly grocery list items
   ((aiData.weeklyGroceryList ?? []) as any[]).forEach((cat: any) => {
     ((cat.items ?? []) as string[]).forEach((item) => {
-      const cleaned = item
-        .replace(/\(.*?\)/g, '')
-        .replace(/\d+\s*(g|ml|gm|kg|l|tsp|tbsp|cup|cups|pcs|piece|pieces|jar|jars|bottle|bottles|pack|packs|sachet|sachets|bowl|glass)\b/gi, '')
-        .trim();
-      const n = normalizeProductName(cleaned);
-      if (n.length >= 2) groceryNorms.add(n);
+      const cleaned = cleanIngredientText(item);
+      if (cleaned.length >= 2) candidates.push(cleaned);
     });
   });
 
-  if (groceryNorms.size === 0) return [];
+  // 2. Meal food items (foodPlan + alternative) — same splitting as recipe matching
+  ((aiData.dayGroups ?? []) as any[]).forEach((dg: any) => {
+    ((dg.meals ?? []) as any[]).forEach((m: any) => {
+      [m.foodPlan, m.alternative].forEach((text: string) => {
+        if (!text) return;
+        text.split(/\n|,|;|\/|\+|\bor\b|\band\b|\bwith\b/i).forEach((piece: string) => {
+          const cleaned = cleanIngredientText(piece);
+          if (cleaned.length >= 3) candidates.push(cleaned);
+        });
+      });
+    });
+  });
+
+  if (candidates.length === 0) return [];
 
   type ProductRow = { product_name: string; link: string; product_name_normalized: string };
   const allData: ProductRow[] = [];
@@ -123,18 +151,38 @@ export async function fetchAffiliateProductsForPlan(
   }
   if (allData.length === 0) return [];
 
+  const normStr = (s: string) => (s || '').toLowerCase().replace(/[^a-z0-9]+/g, '');
+
   const matched: Array<{ product_name: string; link: string }> = [];
   const seen = new Set<string>();
+
   allData.forEach((p) => {
-    const pn = p.product_name_normalized;
-    const isMatch = [...groceryNorms].some(
-      (g) => g === pn || g.includes(pn) || pn.includes(g)
-    );
-    if (isMatch && !seen.has(pn)) {
-      seen.add(pn);
+    if (seen.has(p.product_name_normalized)) return;
+    const productWords = getSignificantWords(p.product_name);
+    const productNorm = p.product_name_normalized;
+
+    const isMatch = candidates.some((candidate) => {
+      const candidateNorm = normStr(candidate);
+      // Exact / substring match (fast path)
+      if (candidateNorm === productNorm || candidateNorm.includes(productNorm) || productNorm.includes(candidateNorm)) {
+        return true;
+      }
+      // Word-based: ALL significant words from the candidate appear in the product name.
+      // e.g. "Pahari turmeric" words ["pahari","turmeric"] all found in
+      // "Pahari Roots Lakadong Gold Turmeric" words → match.
+      const candidateWords = getSignificantWords(candidate);
+      if (candidateWords.size >= 1) {
+        return [...candidateWords].every(w => productWords.has(w));
+      }
+      return false;
+    });
+
+    if (isMatch) {
+      seen.add(productNorm);
       matched.push({ product_name: p.product_name, link: p.link });
     }
   });
+
   return matched;
 }
 
