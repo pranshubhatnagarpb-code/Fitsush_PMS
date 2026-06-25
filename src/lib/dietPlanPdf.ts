@@ -90,7 +90,7 @@ function normalizeProductName(s: string): string {
   return (s || '').toLowerCase().replace(/[^a-z0-9]+/g, '').trim();
 }
 
-async function fetchAffiliateProductsForPlan(
+export async function fetchAffiliateProductsForPlan(
   aiData: any,
 ): Promise<Array<{ product_name: string; link: string }>> {
   const groceryNorms = new Set<string>();
@@ -456,25 +456,293 @@ export function buildDietPlanHtml(
 }
 
 // ---------------------------------------------------------------------------
+// Rich HTML builder — matches the AIDietPlanGenerator "Download PDF" format
+// (green #5a7a32 theme, MKR logo, full client details grid)
+// ---------------------------------------------------------------------------
+
+function buildRichAIPlanHtml(
+  aiData: any,
+  client: any,
+  planMeta: { planName: string; weekLabel: string; dateRange: string; duration: string },
+  recipes: Array<{ Meal_name: string; Ingredients: string; Instructions: string; Remarks: string }>,
+  affiliateProducts: Array<{ product_name: string; link: string }>,
+  logoDataUrl: string,
+): string {
+  const esc = (s: string) => (s || '').replace(/\n/g, '<br/>');
+  const escapePlain = (s: string) =>
+    (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+  const healthConditions: string[] = Array.isArray(client?.health_conditions)
+    ? client.health_conditions
+    : client?.health_conditions
+    ? [client.health_conditions]
+    : [];
+
+  const age = (() => {
+    if (!client?.date_of_birth) return '--';
+    const dob = new Date(client.date_of_birth);
+    const today = new Date();
+    let a = today.getFullYear() - dob.getFullYear();
+    const m = today.getMonth() - dob.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) a--;
+    return a;
+  })();
+
+  const dayGroupTables = ((aiData.dayGroups ?? []) as any[]).map((group: any) => `
+    <h3 style="font-size:14px;color:#5a7a32;font-weight:700;margin:18px 0 8px;padding-bottom:4px;border-bottom:1px solid #d4e4bc;">
+      ${group.label ?? ''}${group.dates ? ` <span style="font-size:12px;color:#666;font-weight:normal;">(${group.dates})</span>` : ''}
+    </h3>
+    <table>
+      <thead><tr>
+        <th style="width:13%">Period</th><th style="width:8%">Time</th>
+        <th style="width:34%">Food Plan</th><th style="width:30%">Alternative</th>
+        <th style="width:15%">Notes</th>
+      </tr></thead>
+      <tbody>
+        ${((group.meals ?? []) as any[]).map((m: any) => `
+          <tr>
+            <td>${m.period ?? '-'}</td><td>${m.time ?? '-'}</td>
+            <td>${esc(m.foodPlan ?? '-')}</td>
+            <td style="color:#666;font-style:italic">${esc(m.alternative ?? '-')}</td>
+            <td>${esc(m.notes ?? '-')}</td>
+          </tr>`).join('')}
+      </tbody>
+    </table>`).join('');
+
+  const recipesHtml = recipes.length === 0 ? '' : `
+    <div style="page-break-before:always;margin-top:24px">
+      <h2 style="color:#5a7a32;font-size:18px;border-bottom:2px solid #5a7a32;padding-bottom:6px;margin-bottom:14px">Recipes for mentioned meals</h2>
+      ${recipes.map(r => `
+        <div style="margin-bottom:16px;page-break-inside:avoid">
+          <h3 style="color:#1a5fb4;font-size:13px;margin-bottom:6px">${escapePlain(r.Meal_name)}</h3>
+          ${r.Ingredients ? `<div style="font-size:11px;line-height:1.5;color:#333;margin-bottom:6px"><strong>Ingredients:</strong><br/><span style="white-space:pre-wrap">${escapePlain(r.Ingredients)}</span></div>` : ''}
+          <div style="font-size:11px;line-height:1.5;color:#333;margin-bottom:6px"><strong>Instructions:</strong><br/><span style="white-space:pre-wrap">${escapePlain(r.Instructions)}</span></div>
+          ${r.Remarks ? `<div style="font-size:11px;line-height:1.5;color:#555"><strong>Remarks:</strong><br/><span style="white-space:pre-wrap">${escapePlain(r.Remarks)}</span></div>` : ''}
+        </div>`).join('')}
+    </div>`;
+
+  const affiliateHtml = affiliateProducts.length === 0 ? '' : `
+    <div style="margin-top:24px;page-break-inside:avoid">
+      <h2 style="color:#b45309;font-size:16px;border-bottom:2px solid #f59e0b;padding-bottom:6px;margin-bottom:12px">🛒 Shop Recommended Products</h2>
+      <table style="width:100%;border-collapse:collapse;font-size:11px">
+        <thead><tr>
+          <th style="background:#f59e0b;color:white;padding:7px 10px;text-align:left;width:40%">Product</th>
+          <th style="background:#f59e0b;color:white;padding:7px 10px;text-align:left">Buy Link</th>
+        </tr></thead>
+        <tbody>
+          ${affiliateProducts.map((p, i) => `
+            <tr style="background:${i % 2 === 0 ? '#fffbeb' : '#ffffff'}">
+              <td style="padding:7px 10px;border-bottom:1px solid #fde68a;font-weight:500">${p.product_name}</td>
+              <td style="padding:7px 10px;border-bottom:1px solid #fde68a">
+                <a href="${p.link}" style="color:#b45309;text-decoration:underline;word-break:break-all">${p.link}</a>
+              </td>
+            </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>`;
+
+  return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <title>${planMeta.planName}</title>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;padding:25px 35px;color:#333;font-size:11px;line-height:1.4}
+    .header{text-align:center;margin-bottom:25px;border-bottom:2px solid #5a7a32;padding-bottom:15px}
+    .header img{width:80px;height:auto;margin-bottom:10px}
+    .header h1{color:#5a7a32;font-size:20px;margin-bottom:5px}
+    .header p{color:#666;font-size:12px}
+    .week-badge{display:inline-block;background:#5a7a32;color:white;padding:3px 8px;border-radius:12px;font-size:10px;margin-left:10px}
+    .client-details{background:#f0f7ff;border:1px solid #b3d1ff;border-radius:8px;padding:15px;margin-bottom:20px}
+    .client-details h3{color:#1a5fb4;font-size:14px;margin-bottom:10px}
+    .client-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;font-size:10px}
+    .client-grid div{margin-bottom:5px}
+    .client-grid span{font-weight:bold;color:#555}
+    .condition-badge{display:inline-block;background:#e3f2fd;color:#1976d2;padding:2px 6px;border-radius:10px;font-size:9px;margin-right:4px;margin-bottom:4px}
+    .intro{background:#f9f9f9;padding:15px;border-radius:8px;margin-bottom:20px;border-left:4px solid #5a7a32}
+    .affirmations{background:#fef9e7;padding:15px;border-radius:8px;margin-bottom:20px;border-left:4px solid #f39c12}
+    .affirmations h3{color:#f39c12;font-size:14px;margin-bottom:10px}
+    .affirmations ul{margin-left:20px}
+    .affirmations li{margin-bottom:5px}
+    table{width:100%;border-collapse:collapse;margin-bottom:20px;font-size:10px}
+    th{background:#5a7a32;color:white;padding:8px;text-align:left;font-weight:bold}
+    td{padding:8px;border-bottom:1px solid #ddd;vertical-align:top}
+    tr:nth-child(even){background:#f9f9f9}
+    .serving{background:#e8f5e8;padding:10px;border-radius:5px;margin-bottom:15px;font-size:10px}
+    .oil-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:15px}
+    .oil-card{background:#f8f9fa;border:1px solid #dee2e6;border-radius:5px;padding:10px}
+    .oil-card h4{font-size:11px;margin-bottom:5px;color:#495057}
+    .oil-card ul{list-style:none;padding:0;margin:0}
+    .oil-card li{font-size:9px;margin-bottom:2px}
+    .notes-box{background:#fff3cd;border:1px solid #ffeaa7;border-radius:5px;padding:15px;margin-bottom:20px}
+    .notes-box h4{color:#856404;font-size:12px;margin-bottom:10px}
+    .notes-box ul{margin-left:15px}
+    .notes-box li{margin-bottom:5px;font-size:10px}
+    .grocery-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:20px}
+    .grocery-card{background:#f8f9fa;border:1px solid #dee2e6;border-radius:5px;padding:10px}
+    .grocery-card h4{font-size:11px;margin-bottom:5px;color:#495057}
+    .grocery-card ul{list-style:none;padding:0;margin:0}
+    .grocery-card li{font-size:9px;margin-bottom:2px}
+    .tips-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:20px}
+    .tip-card{background:#f8f9fa;border:1px solid #dee2e6;border-radius:5px;padding:10px}
+    .tip-card h4{font-size:11px;margin-bottom:5px;color:#495057}
+    .tip-card p{font-size:9px;margin:0}
+    .section-title{color:#5a7a32;font-size:16px;font-weight:bold;margin:25px 0 15px;border-bottom:1px solid #d4e4bc;padding-bottom:5px}
+    .disclaimer{background:#f8f9fa;border:1px solid #dee2e6;border-radius:5px;padding:10px;margin-top:20px;font-size:9px;font-style:italic;color:#6c757d}
+    .footer{text-align:center;margin-top:30px;padding-top:15px;border-top:1px solid #ddd;font-size:9px;color:#999}
+    @media print{body{padding:15px}}
+  </style>
+</head>
+<body>
+  <div class="header">
+    ${logoDataUrl ? `<img src="${logoDataUrl}" alt="MKR Logo"/>` : ''}
+    <h1>${aiData.planName ?? planMeta.planName}</h1>
+    <p>Personalized Diet Plan for ${client?.name ?? 'Client'}
+      <span class="week-badge">${planMeta.weekLabel}</span>
+    </p>
+  </div>
+
+  <div class="client-details">
+    <h3>📋 Client Details</h3>
+    <div class="client-grid">
+      <div><span>Name:</span> ${client?.name ?? '--'}</div>
+      <div><span>Age:</span> ${age} years</div>
+      <div><span>Gender:</span> ${client?.gender ?? 'Not specified'}</div>
+      <div><span>Height/Weight:</span> ${client?.height ?? '--'}cm / ${client?.weight ?? '--'}kg</div>
+      <div><span>Skin Type:</span> ${client?.skin_type ?? 'Not specified'}</div>
+      <div><span>Hair Type:</span> ${client?.hair_type ?? 'Not specified'}</div>
+      <div><span>Goal:</span> ${client?.goal ?? 'Not specified'}</div>
+      <div><span>Diet Preference:</span> ${client?.diet_preference ?? 'Not specified'}</div>
+      <div><span>Date:</span> ${planMeta.dateRange}</div>
+      <div><span>Duration:</span> ${planMeta.duration} days</div>
+    </div>
+    ${healthConditions.length > 0 ? `
+    <div style="margin-top:10px">
+      <h4 style="font-size:10px;margin-bottom:5px;color:#555">Health Conditions:</h4>
+      ${healthConditions.map((c: string) => `<span class="condition-badge">${c}</span>`).join('')}
+    </div>` : ''}
+    ${client?.notes ? `<div style="margin-top:10px;font-size:10px"><strong>Notes:</strong> ${client.notes}</div>` : ''}
+  </div>
+
+  ${aiData.introMessage ? `<div class="intro"><p>${esc(aiData.introMessage)}</p></div>` : ''}
+
+  ${(aiData.affirmations?.length ?? 0) > 0 ? `
+  <div class="affirmations">
+    <h3>Positive Affirmations for ${client?.name ?? 'Client'}:</h3>
+    <ul>${(aiData.affirmations as string[]).map(a => `<li>${a}</li>`).join('')}</ul>
+  </div>` : ''}
+
+  ${dayGroupTables}
+
+  <h3 class="section-title">Additional Guidelines</h3>
+  <div class="serving"><strong>Serving Size:</strong> ${aiData.servingSize ?? '1 bowl is 250ml, 1 cup 150ml, 1 katori 100ml'}</div>
+
+  ${aiData.oilGuidelines ? `
+  <div>
+    <h4 style="font-size:11px;color:#333;margin-bottom:6px">Use of Oils:</h4>
+    <div class="oil-grid">
+      <div class="oil-card"><h4>Cooking - Group A</h4><ul>${((aiData.oilGuidelines.cooking?.groupA ?? []) as string[]).map(o => `<li>- ${o}</li>`).join('')}</ul></div>
+      <div class="oil-card"><h4>Cooking - Group B</h4><ul>${((aiData.oilGuidelines.cooking?.groupB ?? []) as string[]).map(o => `<li>- ${o}</li>`).join('')}</ul></div>
+      <div class="oil-card"><h4>Raw/Topping</h4><ul>${((aiData.oilGuidelines.raw ?? []) as string[]).map(o => `<li>- ${o}</li>`).join('')}</ul></div>
+      <div class="oil-card"><h4>Deep Frying</h4><ul>${((aiData.oilGuidelines.deepFrying ?? []) as string[]).map(o => `<li>- ${o}</li>`).join('')}</ul></div>
+    </div>
+    <p style="font-style:italic;font-size:9px;color:#6c757d;margin:0">${aiData.oilGuidelines.note ?? ''}</p>
+  </div>` : ''}
+
+  ${(aiData.importantNotes?.length ?? 0) > 0 ? `
+  <div class="notes-box">
+    <h4>⚠️ Important Notes:</h4>
+    <ul style="padding-left:15px">${(aiData.importantNotes as string[]).map(n => `<li>${n}</li>`).join('')}</ul>
+  </div>` : ''}
+
+  ${(aiData.weeklyGroceryList?.length ?? 0) > 0 ? `
+  <h3 class="section-title">🛒 Weekly Grocery List</h3>
+  <div class="grocery-grid">
+    ${(aiData.weeklyGroceryList as any[]).map((cat: any) => `
+      <div class="grocery-card">
+        <h4>${cat.category}</h4>
+        <ul>${(cat.items as string[]).map(item => `<li>${item}</li>`).join('')}</ul>
+      </div>`).join('')}
+  </div>` : ''}
+
+  <div class="tips-grid">
+    ${aiData.skinCareTips ? `<div class="tip-card"><h4>✨ Skin Care Tips</h4><p>${aiData.skinCareTips}</p></div>` : ''}
+    ${aiData.hairCareTips ? `<div class="tip-card"><h4>💇 Hair Care Tips</h4><p>${aiData.hairCareTips}</p></div>` : ''}
+    ${aiData.healthNotes ? `<div class="tip-card"><h4>🏥 Health Notes</h4><p>${aiData.healthNotes}</p></div>` : ''}
+    <div class="tip-card"><h4>💊 Recommended Supplements</h4><p>${aiData.supplements ?? 'No supplements specified'}</p></div>
+  </div>
+
+  ${aiData.disclaimer ? `<div class="disclaimer"><strong>Disclaimer:</strong> ${aiData.disclaimer}</div>` : ''}
+
+  ${recipesHtml}
+  ${affiliateHtml}
+
+  <div class="footer">© ${new Date().getFullYear()} Dr. Malika Kabra Rathi. This nutrition plan is personalized and should be followed as advised.</div>
+</body>
+</html>`;
+}
+
+// ---------------------------------------------------------------------------
 // Opens the plan in a new tab for browser print / Save as PDF
 // ---------------------------------------------------------------------------
 
 export async function openDietPlanForPrint(plan: any): Promise<void> {
   const isAI = plan.is_ai_generated && plan.ai_plan_data;
-  const [recipes, affiliateProducts] = isAI
-    ? await Promise.all([
-        fetchRecipesForAIPlan(plan.ai_plan_data),
-        fetchAffiliateProductsForPlan(plan.ai_plan_data),
-      ])
-    : [[], []];
-  const html = buildDietPlanHtml(plan, recipes, affiliateProducts);
-  if (!html) return;
-  const w = window.open('', '_blank');
-  if (w) {
-    w.document.write(html);
-    w.document.close();
-    w.print();
+
+  if (!isAI) {
+    // Non-AI structured plan — use the simple table layout
+    const html = buildDietPlanHtml(plan);
+    if (!html) return;
+    const w = window.open('', '_blank');
+    if (w) { w.document.write(html); w.document.close(); w.print(); }
+    return;
   }
+
+  // Fetch logo, recipes and affiliate products in parallel
+  const [logoDataUrl, recipes, affiliateProducts] = await Promise.all([
+    (async () => {
+      try {
+        const res = await fetch('/MKR Logo.webp');
+        const blob = await res.blob();
+        return await new Promise<string>((resolve) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result as string);
+          reader.readAsDataURL(blob);
+        });
+      } catch { return ''; }
+    })(),
+    fetchRecipesForAIPlan(plan.ai_plan_data),
+    fetchAffiliateProductsForPlan(plan.ai_plan_data),
+  ]);
+
+  // Compute date range from plan metadata
+  const aiData = plan.ai_plan_data;
+  const startDateStr = aiData.editableStartDate ?? plan.start_date ?? aiData.startDate ?? '';
+  const dayCount = parseInt(aiData.editableDayCount ?? '7') || 7;
+  let dateRange = 'Not specified';
+  if (startDateStr) {
+    try {
+      const start = new Date(startDateStr);
+      const end = new Date(start);
+      end.setDate(start.getDate() + dayCount - 1);
+      const fmt = (d: Date) =>
+        `${String(d.getDate()).padStart(2, '0')}-${String(d.getMonth() + 1).padStart(2, '0')}-${d.getFullYear()}`;
+      dateRange = `${fmt(start)} to ${fmt(end)}`;
+    } catch { /* leave as Not specified */ }
+  }
+
+  const client = plan.clients ?? {};
+  const planMeta = {
+    planName: aiData.planName ?? plan.plan_name ?? 'Diet Plan',
+    weekLabel: plan.plan_name ?? aiData.planName ?? 'Diet Plan',
+    dateRange,
+    duration: String(dayCount),
+  };
+
+  const html = buildRichAIPlanHtml(aiData, client, planMeta, recipes, affiliateProducts, logoDataUrl);
+  const w = window.open('', '_blank');
+  if (w) { w.document.write(html); w.document.close(); w.print(); }
 }
 
 // ---------------------------------------------------------------------------

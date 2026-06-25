@@ -12,6 +12,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Sparkles, Download, Loader2, Pencil, Check, X, CheckCircle2, Plus, Trash2, Save, CalendarIcon, BookTemplate, RefreshCw, Copy, Calendar as CalendarDays, Hash, Clock } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
+import { fetchAffiliateProductsForPlan } from '@/lib/dietPlanPdf';
 import { FunctionsHttpError } from '@supabase/supabase-js';
 import { Client } from '@/hooks/useClients';
 import { useDietChartTemplates, useCreateTemplate, type DietChartTemplate, type TemplateDay, type TemplateMeal } from '@/hooks/useDietChartTemplates';
@@ -1823,9 +1824,11 @@ export const AIDietPlanGenerator = ({ clients, editModeData, onClose }: Props) =
   </div>` : ''}
 
   ${(await (async () => {
-    const recipes = await fetchMatchedRecipes(effectivePlan);
-    if (recipes.length === 0) return '';
-    return `
+    const [recipes, affiliates] = await Promise.all([
+      fetchMatchedRecipes(effectivePlan),
+      fetchAffiliateProductsForPlan(effectivePlan),
+    ]);
+    const recipesHtml = recipes.length === 0 ? '' : `
   <div class="page-break" style="page-break-before: always;"></div>
   <div style="margin-top: 24px;">
     <h2 style="color: #5a7a32; font-size: 18px; border-bottom: 2px solid #5a7a32; padding-bottom: 6px; margin-bottom: 14px;">Recipes for mentioned meals</h2>
@@ -1838,6 +1841,26 @@ export const AIDietPlanGenerator = ({ clients, editModeData, onClose }: Props) =
       </div>
     `).join('')}
   </div>`;
+    const affiliatesHtml = affiliates.length === 0 ? '' : `
+  <div style="margin-top: 24px; page-break-inside: avoid;">
+    <h2 style="color: #b45309; font-size: 16px; border-bottom: 2px solid #f59e0b; padding-bottom: 6px; margin-bottom: 12px;">🛒 Shop Recommended Products</h2>
+    <table style="width:100%;border-collapse:collapse;font-size:11px;">
+      <thead><tr>
+        <th style="background:#f59e0b;color:white;padding:7px 10px;text-align:left;width:40%;">Product</th>
+        <th style="background:#f59e0b;color:white;padding:7px 10px;text-align:left;">Buy Link</th>
+      </tr></thead>
+      <tbody>
+        ${affiliates.map((p, i) => `
+          <tr style="background:${i % 2 === 0 ? '#fffbeb' : '#ffffff'};">
+            <td style="padding:7px 10px;border-bottom:1px solid #fde68a;font-weight:500;">${p.product_name}</td>
+            <td style="padding:7px 10px;border-bottom:1px solid #fde68a;">
+              <a href="${p.link}" style="color:#b45309;text-decoration:underline;word-break:break-all;">${p.link}</a>
+            </td>
+          </tr>`).join('')}
+      </tbody>
+    </table>
+  </div>`;
+    return recipesHtml + affiliatesHtml;
   })())}
 
   <div class="footer">
