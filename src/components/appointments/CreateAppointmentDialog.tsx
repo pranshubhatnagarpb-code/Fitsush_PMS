@@ -56,8 +56,8 @@ export const CreateAppointmentDialog = ({ trigger }: Props) => {
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         {trigger || (
-          <Button size="sm">
-            <Plus className="h-4 w-4 mr-1" /> Create Appointment
+          <Button size="sm" className="h-7 px-2.5 text-xs">
+            <Plus className="h-3.5 w-3.5 mr-1" /> Create Appointment
           </Button>
         )}
       </DialogTrigger>
