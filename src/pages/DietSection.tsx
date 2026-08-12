@@ -155,17 +155,17 @@ const DietSection = () => {
           <title>Diet Plan - ${clientName}</title>
           <style>
             body { font-family: Arial, sans-serif; padding: 20px; }
-            h1 { color: #00a896; }
+            h1 { color: #FF4D06; }
             table { width: 100%; border-collapse: collapse; margin-top: 20px; }
             th, td { border: 1px solid #e2e8f0; padding: 12px; text-align: left; }
-            th { background-color: #f0fdff; color: #0d7477; }
+            th { background-color: #FFF7ED; color: #C2410C; }
             .header { margin-bottom: 20px; }
             .instructions { font-style: italic; color: #64748b; }
           </style>
         </head>
         <body>
           <div class="header">
-            <h1>DR. MALIKA KABRA RATHI - NUTRITION CLINIC</h1>
+            <h1>FITSUSH - NUTRITION CLINIC</h1>
             <h2>Diet Plan: ${planName}</h2>
             <p><strong>Client:</strong> ${clientName}</p>
             <p><strong>Generated:</strong> ${new Date().toLocaleDateString()}</p>
@@ -198,7 +198,7 @@ const DietSection = () => {
             </tbody>
           </table>
           <p style="margin-top: 30px; color: #64748b;">
-            © 2026 Dr. Malika Kabra Rathi. This nutrition plan is personalized and should be followed as advised.
+            © 2026 Fitsush. This nutrition plan is personalized and should be followed as advised.
           </p>
         </body>
       </html>
@@ -222,8 +222,8 @@ const DietSection = () => {
 
     const client = clients.find(c => c.id === selectedClient);
     const clientEmail = client?.email || '';
-    const subject = encodeURIComponent(`Nutrition Plan: ${planName} - Dr. Malika Kabra Rathi`);
-    const body = encodeURIComponent(`Dear ${client?.name || 'Client'},\n\nPlease find attached your personalized nutrition plan: ${planName}\n\nBest regards,\nDr. Malika Kabra Rathi Team`);
+    const subject = encodeURIComponent(`Nutrition Plan: ${planName} - Fitsush`);
+    const body = encodeURIComponent(`Dear ${client?.name || 'Client'},\n\nPlease find attached your personalized nutrition plan: ${planName}\n\nBest regards,\nFitsush Team`);
     
     window.open(`mailto:${clientEmail}?subject=${subject}&body=${body}`);
     toast.success('Email client opened!');

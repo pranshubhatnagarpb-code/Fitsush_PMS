@@ -237,12 +237,12 @@ export function buildDietPlanHtml(
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 25px 35px; color: #334155; font-size: 11px; line-height: 1.4; }
-    .header { text-align: center; margin-bottom: 25px; border-bottom: 2px solid #00a896; padding-bottom: 15px; }
-    .header h1 { color: #00a896; font-size: 20px; margin-bottom: 5px; }
+    .header { text-align: center; margin-bottom: 25px; border-bottom: 2px solid #FF4D06; padding-bottom: 15px; }
+    .header h1 { color: #FF4D06; font-size: 20px; margin-bottom: 5px; }
     .header p { color: #64748b; font-size: 12px; }
-    .week-badge { display: inline-block; background: #00a896; color: white; padding: 3px 8px; border-radius: 12px; font-size: 10px; margin-left: 10px; }
-    .client-details { background: #f0fdff; border: 1px solid #b3e5e0; border-radius: 8px; padding: 15px; margin-bottom: 20px; }
-    .client-details h3 { color: #0d7477; font-size: 14px; margin-bottom: 10px; }
+    .week-badge { display: inline-block; background: #FF4D06; color: white; padding: 3px 8px; border-radius: 12px; font-size: 10px; margin-left: 10px; }
+    .client-details { background: #FFF7ED; border: 1px solid #FED7AA; border-radius: 8px; padding: 15px; margin-bottom: 20px; }
+    .client-details h3 { color: #C2410C; font-size: 14px; margin-bottom: 10px; }
     .client-details-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
     .client-details-grid span { font-weight: bold; color: #475569; }
     .health-conditions { margin-top: 10px; }
@@ -250,15 +250,15 @@ export function buildDietPlanHtml(
     .condition-badge { display: inline-block; background: #e3f2fd; color: #1976d2; padding: 2px 6px; border-radius: 10px; font-size: 9px; margin-right: 4px; margin-bottom: 4px; }
     .client-notes { margin-top: 10px; }
     .client-notes h4 { font-size: 10px; margin-bottom: 5px; color: #475569; }
-    .intro { background: #f0fdff; padding: 15px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #00a896; }
+    .intro { background: #FFF7ED; padding: 15px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #FF4D06; }
     .intro p { margin: 0; font-style: italic; }
-    .section-title { color: #00a896; font-size: 16px; font-weight: bold; margin: 25px 0 15px 0; border-bottom: 1px solid #b3e5e0; padding-bottom: 5px; }
+    .section-title { color: #FF4D06; font-size: 16px; font-weight: bold; margin: 25px 0 15px 0; border-bottom: 1px solid #FED7AA; padding-bottom: 5px; }
     table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 10px; }
-    th { background: #00a896; color: white; padding: 8px; text-align: left; font-weight: bold; }
+    th { background: #FF4D06; color: white; padding: 8px; text-align: left; font-weight: bold; }
     td { padding: 8px; border-bottom: 1px solid #e2e8f0; vertical-align: top; }
     tr:nth-child(even) { background: #f8fafc; }
-    .affirmations { background: #f0fdf4; padding: 15px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #00a896; }
-    .affirmations h3 { color: #00a896; font-size: 14px; margin-bottom: 10px; }
+    .affirmations { background: #FFF7ED; padding: 15px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #FF4D06; }
+    .affirmations h3 { color: #FF4D06; font-size: 14px; margin-bottom: 10px; }
     .affirmations ul { margin-left: 20px; }
     .affirmations li { margin-bottom: 5px; }
     .important-notes { background: #fefce8; border: 1px solid #fde047; border-radius: 5px; padding: 15px; margin-bottom: 20px; }
@@ -410,7 +410,7 @@ export function buildDietPlanHtml(
 
   ${recipes.length > 0 ? `
   <div style="page-break-before: always; margin-top: 24px;">
-    <h2 style="color: #5a7a32; font-size: 18px; border-bottom: 2px solid #5a7a32; padding-bottom: 6px; margin-bottom: 14px;">Recipes for mentioned meals</h2>
+    <h2 style="color: #FF4D06; font-size: 18px; border-bottom: 2px solid #FF4D06; padding-bottom: 6px; margin-bottom: 14px;">Recipes for mentioned meals</h2>
     ${recipes.map(r => `
       <div style="margin-bottom: 16px; page-break-inside: avoid;">
         <h3 style="color: #1a5fb4; font-size: 13px; margin-bottom: 6px;">${r.Meal_name}</h3>
@@ -445,7 +445,7 @@ export function buildDietPlanHtml(
   </div>` : ''}
 
   <div class="footer">
-    <p>© ${new Date().getFullYear()} Dr. Malika Kabra Rathi - Personalized Nutrition Plan</p>
+    <p>© ${new Date().getFullYear()} Fitsush - Personalized Nutrition Plan</p>
   </div>
 </body>
 </html>`;
@@ -463,11 +463,11 @@ export function buildDietPlanHtml(
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: 'Segoe UI', sans-serif; padding: 25px 35px; color: #334155; font-size: 11px; }
-    .header { text-align: center; margin-bottom: 20px; border-bottom: 2px solid #00a896; padding-bottom: 15px; }
-    .header h1 { color: #00a896; font-size: 18px; }
+    .header { text-align: center; margin-bottom: 20px; border-bottom: 2px solid #FF4D06; padding-bottom: 15px; }
+    .header h1 { color: #FF4D06; font-size: 18px; }
     .header p { color: #64748b; font-size: 12px; margin-top: 4px; }
     table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 10px; }
-    th { background: #00a896; color: white; padding: 8px; text-align: left; }
+    th { background: #FF4D06; color: white; padding: 8px; text-align: left; }
     td { padding: 8px; border-bottom: 1px solid #e2e8f0; }
     tr:nth-child(even) { background: #f8fafc; }
     .footer { text-align: center; margin-top: 25px; font-size: 9px; color: #64748b; }
@@ -498,14 +498,14 @@ export function buildDietPlanHtml(
       `).join('')}
     </tbody>
   </table>
-  <div class="footer">© ${new Date().getFullYear()} Dr. Malika Kabra Rathi - Personalized Nutrition Plan</div>
+  <div class="footer">© ${new Date().getFullYear()} Fitsush - Personalized Nutrition Plan</div>
 </body>
 </html>`;
 }
 
 // ---------------------------------------------------------------------------
 // Rich HTML builder — matches the AIDietPlanGenerator "Download PDF" format
-// (green #5a7a32 theme, MKR logo, full client details grid)
+// (green #FF4D06 theme, Fitsush logo, full client details grid)
 // ---------------------------------------------------------------------------
 
 function buildRichAIPlanHtml(
@@ -537,7 +537,7 @@ function buildRichAIPlanHtml(
   })();
 
   const dayGroupTables = ((aiData.dayGroups ?? []) as any[]).map((group: any) => `
-    <h3 style="font-size:14px;color:#5a7a32;font-weight:700;margin:18px 0 8px;padding-bottom:4px;border-bottom:1px solid #d4e4bc;">
+    <h3 style="font-size:14px;color:#FF4D06;font-weight:700;margin:18px 0 8px;padding-bottom:4px;border-bottom:1px solid #FED7AA;">
       ${group.label ?? ''}${group.dates ? ` <span style="font-size:12px;color:#666;font-weight:normal;">(${group.dates})</span>` : ''}
     </h3>
     <table>
@@ -559,7 +559,7 @@ function buildRichAIPlanHtml(
 
   const recipesHtml = recipes.length === 0 ? '' : `
     <div style="page-break-before:always;margin-top:24px">
-      <h2 style="color:#5a7a32;font-size:18px;border-bottom:2px solid #5a7a32;padding-bottom:6px;margin-bottom:14px">Recipes for mentioned meals</h2>
+      <h2 style="color:#FF4D06;font-size:18px;border-bottom:2px solid #FF4D06;padding-bottom:6px;margin-bottom:14px">Recipes for mentioned meals</h2>
       ${recipes.map(r => `
         <div style="margin-bottom:16px;page-break-inside:avoid">
           <h3 style="color:#1a5fb4;font-size:13px;margin-bottom:6px">${escapePlain(r.Meal_name)}</h3>
@@ -597,24 +597,24 @@ function buildRichAIPlanHtml(
   <style>
     *{margin:0;padding:0;box-sizing:border-box}
     body{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;padding:25px 35px;color:#333;font-size:11px;line-height:1.4}
-    .header{text-align:center;margin-bottom:25px;border-bottom:2px solid #5a7a32;padding-bottom:15px}
+    .header{text-align:center;margin-bottom:25px;border-bottom:2px solid #FF4D06;padding-bottom:15px}
     .header img{width:80px;height:auto;margin-bottom:10px}
-    .header h1{color:#5a7a32;font-size:20px;margin-bottom:5px}
+    .header h1{color:#FF4D06;font-size:20px;margin-bottom:5px}
     .header p{color:#666;font-size:12px}
-    .week-badge{display:inline-block;background:#5a7a32;color:white;padding:3px 8px;border-radius:12px;font-size:10px;margin-left:10px}
+    .week-badge{display:inline-block;background:#FF4D06;color:white;padding:3px 8px;border-radius:12px;font-size:10px;margin-left:10px}
     .client-details{background:#f0f7ff;border:1px solid #b3d1ff;border-radius:8px;padding:15px;margin-bottom:20px}
     .client-details h3{color:#1a5fb4;font-size:14px;margin-bottom:10px}
     .client-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;font-size:10px}
     .client-grid div{margin-bottom:5px}
     .client-grid span{font-weight:bold;color:#555}
     .condition-badge{display:inline-block;background:#e3f2fd;color:#1976d2;padding:2px 6px;border-radius:10px;font-size:9px;margin-right:4px;margin-bottom:4px}
-    .intro{background:#f9f9f9;padding:15px;border-radius:8px;margin-bottom:20px;border-left:4px solid #5a7a32}
+    .intro{background:#f9f9f9;padding:15px;border-radius:8px;margin-bottom:20px;border-left:4px solid #FF4D06}
     .affirmations{background:#fef9e7;padding:15px;border-radius:8px;margin-bottom:20px;border-left:4px solid #f39c12}
     .affirmations h3{color:#f39c12;font-size:14px;margin-bottom:10px}
     .affirmations ul{margin-left:20px}
     .affirmations li{margin-bottom:5px}
     table{width:100%;border-collapse:collapse;margin-bottom:20px;font-size:10px}
-    th{background:#5a7a32;color:white;padding:8px;text-align:left;font-weight:bold}
+    th{background:#FF4D06;color:white;padding:8px;text-align:left;font-weight:bold}
     td{padding:8px;border-bottom:1px solid #ddd;vertical-align:top}
     tr:nth-child(even){background:#f9f9f9}
     .serving{background:#e8f5e8;padding:10px;border-radius:5px;margin-bottom:15px;font-size:10px}
@@ -636,7 +636,7 @@ function buildRichAIPlanHtml(
     .tip-card{background:#f8f9fa;border:1px solid #dee2e6;border-radius:5px;padding:10px}
     .tip-card h4{font-size:11px;margin-bottom:5px;color:#495057}
     .tip-card p{font-size:9px;margin:0}
-    .section-title{color:#5a7a32;font-size:16px;font-weight:bold;margin:25px 0 15px;border-bottom:1px solid #d4e4bc;padding-bottom:5px}
+    .section-title{color:#FF4D06;font-size:16px;font-weight:bold;margin:25px 0 15px;border-bottom:1px solid #FED7AA;padding-bottom:5px}
     .disclaimer{background:#f8f9fa;border:1px solid #dee2e6;border-radius:5px;padding:10px;margin-top:20px;font-size:9px;font-style:italic;color:#6c757d}
     .footer{text-align:center;margin-top:30px;padding-top:15px;border-top:1px solid #ddd;font-size:9px;color:#999}
     @media print{body{padding:15px}}
@@ -644,7 +644,7 @@ function buildRichAIPlanHtml(
 </head>
 <body>
   <div class="header">
-    ${logoDataUrl ? `<img src="${logoDataUrl}" alt="MKR Logo"/>` : ''}
+    ${logoDataUrl ? `<img src="${logoDataUrl}" alt="Fitsush Logo"/>` : ''}
     <h1>${aiData.planName ?? planMeta.planName}</h1>
     <p>Personalized Diet Plan for ${client?.name ?? 'Client'}
       <span class="week-badge">${planMeta.weekLabel}</span>
@@ -726,7 +726,7 @@ function buildRichAIPlanHtml(
   ${recipesHtml}
   ${affiliateHtml}
 
-  <div class="footer">© ${new Date().getFullYear()} Dr. Malika Kabra Rathi. This nutrition plan is personalized and should be followed as advised.</div>
+  <div class="footer">© ${new Date().getFullYear()} Fitsush. This nutrition plan is personalized and should be followed as advised.</div>
 </body>
 </html>`;
 }
@@ -751,7 +751,7 @@ export async function openDietPlanForPrint(plan: any): Promise<void> {
   const [logoDataUrl, recipes, affiliateProducts] = await Promise.all([
     (async () => {
       try {
-        const res = await fetch('/MKR Logo.webp');
+        const res = await fetch('/fitsush-logo.webp');
         const blob = await res.blob();
         return await new Promise<string>((resolve) => {
           const reader = new FileReader();

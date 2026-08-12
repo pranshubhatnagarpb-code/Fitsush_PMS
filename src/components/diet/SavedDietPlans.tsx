@@ -17,6 +17,7 @@ import { toast } from 'sonner';
 
 // Import the AIDietPlanGenerator component
 import { AIDietPlanGenerator } from './AIDietPlanGenerator';
+import { BRANDING } from '@/config/branding';
 
 const SavedDietPlans = () => {
   const { data: plans = [], isLoading, refetch } = useSavedDietPlans();

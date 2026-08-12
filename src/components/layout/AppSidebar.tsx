@@ -2,7 +2,6 @@ import { NavLink, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard,
   Users,
-  Receipt,
   FileText,
   UserCog,
   Utensils,
@@ -52,7 +51,6 @@ const navGroups = [
   {
     label: 'Business',
     items: [
-      { title: 'Bills Collection', icon: Receipt, path: '/bills' },
       { title: 'Affiliate Products', icon: ShoppingBag, path: '/affiliate-products' },
       { title: 'Employee', icon: UserCog, path: '/employees' },
     ],
@@ -67,7 +65,7 @@ export const AppSidebar = () => {
 
   const initials = user?.email
     ? user.email.slice(0, 2).toUpperCase()
-    : 'MK';
+    : 'FS';
 
   return (
     <>
@@ -116,13 +114,13 @@ export const AppSidebar = () => {
           <div className="flex items-center gap-3">
             <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-[hsl(var(--primary)/0.2)] ring-1 ring-[hsl(var(--primary)/0.3)]">
               <img
-                src="/MKR Logo.webp"
-                alt="MKR"
+                src="/fitsush-logo.webp"
+                alt="Fitsush"
                 className="w-5 h-5 object-contain"
               />
             </div>
             <div>
-              <p className="text-[13px] font-bold text-white tracking-wide leading-none">MKR CLINIC</p>
+              <p className="text-[13px] font-bold text-white tracking-wide leading-none">FITSUSH</p>
               <p className="text-[10px] text-[hsl(var(--sidebar-foreground))] mt-0.5 leading-none">Practice Management</p>
             </div>
           </div>
@@ -176,7 +174,7 @@ export const AppSidebar = () => {
         {/* User & Logout */}
         <div className="px-2.5 py-3 border-t border-[hsl(var(--sidebar-border))]">
           <div className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg">
-            <div className="w-7 h-7 rounded-full bg-gradient-to-br from-[hsl(var(--primary))] to-[hsl(168,65%,40%)] flex items-center justify-center shrink-0">
+            <div className="w-7 h-7 rounded-full bg-gradient-to-br from-[hsl(var(--primary))] to-[hsl(30,92%,54%)] flex items-center justify-center shrink-0">
               <span className="text-[10px] font-bold text-white">{initials}</span>
             </div>
             <div className="flex-1 min-w-0">

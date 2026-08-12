@@ -22,11 +22,20 @@ export default async function handler(req, res) {
   }
   
   try {
-    const { dishName } = req.body;
+    const { dishName, servings, additionalInstructions } = req.body;
 
     if (!dishName || typeof dishName !== 'string' || dishName.trim().length === 0) {
       return res.status(400).json({ error: 'Please provide a dish name.' });
     }
+
+    const servingsNum = Number(servings);
+    const servingsCount = Number.isFinite(servingsNum) && servingsNum > 0 && servingsNum <= 50
+      ? Math.round(servingsNum)
+      : undefined;
+
+    const extraInstructions = typeof additionalInstructions === 'string'
+      ? additionalInstructions.trim().slice(0, 500)
+      : '';
 
     // Check if OpenAI API key is available
     if (!process.env.OPENAI_API_KEY) {
@@ -62,19 +71,33 @@ Guidelines:
 - Include traditional spices and ingredients
 - Make it practical for home cooking
 - Include regional variations if applicable
-- Focus on nutrition and health benefits`;
+- Focus on nutrition and health benefits
+- Treat every item in "MANDATORY REQUIREMENTS" as a hard constraint, not a suggestion. Before writing your final answer, re-check the ingredients list and every instruction step against each requirement one by one.
+- If a serving count is required, scale every ingredient quantity by exact arithmetic to that count (e.g. halve all quantities for 2 servings if the natural recipe is for 4), and set "servings" to state that exact number.
+- If an ingredient is required to be excluded (e.g. "without cream", "no onion-garlic"), that ingredient must not appear anywhere — not in "ingredients", not in "instructions", not in "nutritionTips". Replace it with a suitable substitute or omit the step entirely.
+- If a calorie or nutrition target is required, adjust portions/ingredients so "calories" reflects that target.`;
 
-    const userPrompt = `Please provide a detailed recipe for: ${dishName.trim()}`;
+    let userPrompt = `Recipe request: ${dishName.trim()}`;
+    const requirements = [];
+    if (servingsCount) {
+      requirements.push(`Servings: exactly ${servingsCount} serving${servingsCount === 1 ? '' : 's'} — scale all ingredient quantities to this count precisely.`);
+    }
+    if (extraInstructions) {
+      requirements.push(extraInstructions);
+    }
+    if (requirements.length > 0) {
+      userPrompt += `\n\nMANDATORY REQUIREMENTS (all must be satisfied exactly, no exceptions):\n${requirements.map((r) => `- ${r}`).join('\n')}\n\nDouble-check your ingredients and instructions against each requirement above before responding.`;
+    }
 
-    // Use gpt-4o model for consistency
     const completion = await openai.chat.completions.create({
       model: "gpt-4o",
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt },
       ],
-      temperature: 0.8,
+      temperature: 0.3,
       max_tokens: 2000,
+      response_format: { type: "json_object" },
     });
     
     const content = completion.choices[0]?.message?.content;

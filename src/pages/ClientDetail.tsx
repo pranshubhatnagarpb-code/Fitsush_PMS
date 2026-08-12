@@ -30,7 +30,7 @@ const GOAL_LABELS: Record<string, string> = {
 };
 const DIET_LABELS: Record<string, string> = {
   veg: 'Vegetarian', non_veg: 'Non-Vegetarian', eggetarian: 'Eggetarian',
-  vegan: 'Vegan', jain: 'Jain',
+  pescatarian: 'Pescatarian', vegan: 'Vegan', jain: 'Jain',
 };
 const WATER_LABELS: Record<string, string> = {
   '<1L': '<1 L', '1-2L': '1–2 L', '2-3L': '2–3 L', '3L+': '3 L+',
@@ -38,6 +38,60 @@ const WATER_LABELS: Record<string, string> = {
 const ACTIVITY_LABELS: Record<string, string> = {
   sedentary: 'Sedentary', light: 'Light', moderate: 'Moderate',
   active: 'Active', very_active: 'Very Active',
+};
+const EXERCISE_DURATION_LABELS: Record<string, string> = {
+  none: 'None', '15_30': '15–30 min', '30_45': '30–45 min',
+  '45_60': '45–60 min', '60_plus': '60+ min',
+};
+const EXERCISE_FREQUENCY_LABELS: Record<string, string> = {
+  daily: 'Daily', '4_5_wk': '4–5x/week', '2_3_wk': '2–3x/week', rarely: 'Rarely',
+};
+const STRESS_SOURCE_LABELS: Record<string, string> = {
+  work: 'Work', family: 'Family', health: 'Health', financial: 'Financial', multiple: 'Multiple',
+};
+const LUNCH_DURATION_LABELS: Record<string, string> = {
+  under_10: 'Under 10 min', '10_20': '10–20 min', over_20: 'Over 20 min',
+};
+const HOME_COOKED_LABELS: Record<string, string> = {
+  yes: 'Yes', partially: 'Partially', rarely: 'Rarely',
+};
+const WHO_COOKS_LABELS: Record<string, string> = {
+  self: 'Self', family: 'Family', cook_help: 'Cook / help', mix: 'Mix',
+};
+const EATING_SPEED_LABELS: Record<string, string> = {
+  slow: 'Slow', moderate: 'Moderate', fast: 'Fast',
+};
+const BINGE_EATING_LABELS: Record<string, string> = {
+  no: 'No', occasionally: 'Occasionally', frequently: 'Frequently',
+};
+const ENERGY_DRINKS_LABELS: Record<string, string> = {
+  never: 'Never', rarely: 'Rarely', sometimes: 'Sometimes', daily: 'Daily',
+};
+const BLOOD_GROUP_LABELS: Record<string, string> = {
+  'A+': 'A+', 'A-': 'A-', 'B+': 'B+', 'B-': 'B-', 'AB+': 'AB+', 'AB-': 'AB-', 'O+': 'O+', 'O-': 'O-', unknown: 'Not sure',
+};
+const ONCOLOGY_TREATMENT_LABELS: Record<string, string> = {
+  chemotherapy: 'Chemotherapy', radiation: 'Radiation', immunotherapy: 'Immunotherapy',
+  surgery: 'Surgery', bone_marrow_transplant: 'Bone marrow transplant', other: 'Other',
+};
+const ONCOLOGY_SYMPTOM_LABELS: Record<string, string> = {
+  loss_of_appetite: 'Loss of appetite', nausea: 'Nausea', vomiting: 'Vomiting', taste_changes: 'Taste changes',
+  mouth_sores: 'Mouth sores', dry_mouth: 'Dry mouth', difficulty_swallowing: 'Difficulty swallowing',
+  early_satiety: 'Early satiety', food_aversion: 'Food aversion', diarrhea: 'Diarrhea', constipation: 'Constipation',
+  fatigue: 'Fatigue', weight_loss: 'Weight loss', weight_gain: 'Weight gain',
+};
+const FOOD_SAFETY_LABELS: Record<string, string> = {
+  raw_sprouts: 'Raw sprouts', street_food: 'Street food', raw_eggs: 'Raw eggs',
+  unpasteurized_dairy: 'Unpasteurized dairy', none: 'None',
+};
+const FERTILITY_DURATION_LABELS: Record<string, string> = {
+  under_6mo: '< 6 months', '6_12mo': '6–12 months', '1_2yr': '1–2 years', '2yr_plus': '2+ years',
+};
+const FERTILITY_TREATMENT_LABELS: Record<string, string> = {
+  none: 'None', iui: 'IUI', ivf: 'IVF', other: 'Other',
+};
+const MARITAL_STATUS_LABELS: Record<string, string> = {
+  single: 'Single', married: 'Married', divorced: 'Divorced', widowed: 'Widowed',
 };
 
 function ratingBar(val: number | undefined) {
@@ -90,10 +144,25 @@ function IntakePayloadView({ submission }: { submission: { payload: Record<strin
   const body = req.body ?? {};
   const digestion = opt.digestion ?? {};
   const foodPattern = opt.foodPattern ?? {};
+  const dailyMeals = foodPattern.dailyMeals ?? {};
   const lifestyleDepth = opt.lifestyleDepth ?? {};
+  const oncology = opt.oncology ?? {};
+  const bodyMeasurements = opt.bodyMeasurements ?? {};
+  const goals = opt.goals ?? {};
+  const contact = p.contact ?? {};
+  const guardian = p.guardian ?? {};
   const female = p.female ?? {};
+  const fertility = female.fertility ?? {};
+  const pregnancy = female.pregnancy ?? {};
+  const lactation = female.lactation ?? {};
   const male = p.male ?? {};
   const child = p.child ?? {};
+  const childFeeding = child.feeding ?? {};
+
+  const MEAL_LABELS: Record<string, string> = {
+    breakfast: 'Breakfast', midMorning: 'Mid-Morning', lunch: 'Lunch',
+    evening: 'Evening', dinner: 'Dinner', postDinner: 'Post-Dinner',
+  };
 
   return (
     <div>
@@ -102,15 +171,67 @@ function IntakePayloadView({ submission }: { submission: { payload: Record<strin
         {' · '}Branch: <span className="capitalize font-medium">{branch}</span>
       </p>
 
+      <Section title="Identity">
+        <InfoRow label="Name" value={req.fullName} />
+        <InfoRow label="Date of Birth" value={req.dob} />
+        <InfoRow label="Age" value={formatAge(req.dob) ?? req.age} />
+        <InfoRow label="City" value={req.city} />
+        <InfoRow label="Address" value={opt.address} />
+        {branch === 'child' ? (
+          <>
+            <InfoRow label="Guardian Name" value={guardian.guardianName} />
+            <InfoRow label="Guardian Relationship" value={guardian.guardianRelationship} />
+            <InfoRow label="Guardian Phone" value={guardian.guardianPhone} />
+            <InfoRow label="Guardian Email" value={guardian.guardianEmail} />
+            <InfoRow label="Referred By" value={guardian.referredBy} />
+          </>
+        ) : (
+          <>
+            <InfoRow label="Phone" value={contact.phone} />
+            <InfoRow label="Email" value={contact.email} />
+            <InfoRow label="Profession" value={contact.profession} />
+            <InfoRow label="Marital Status" value={MARITAL_STATUS_LABELS[contact.maritalStatus] ?? contact.maritalStatus} />
+            <InfoRow label="Children" value={contact.childrenCount} />
+            <InfoRow label="Referred By" value={contact.referredBy} />
+          </>
+        )}
+      </Section>
+
       <Section title="Goal & Complaints">
         <InfoRow label="Primary Goal" value={GOAL_LABELS[req.primaryGoal] ?? req.primaryGoal} />
         <InfoRow label="Chief Complaints" value={req.chiefComplaints?.join(', ')} />
       </Section>
 
+      {Object.keys(goals).length > 0 ? (
+        <Section title="Goals & Expectations">
+          <InfoRow label="Past attempts" value={goals.pastAttempts} />
+          <InfoRow label="What worked / didn't" value={goals.pastAttemptsOutcome} />
+          <InfoRow label="Biggest challenge" value={goals.biggestChallenge} />
+          <InfoRow label="Expectations from program" value={goals.programExpectations} />
+        </Section>
+      ) : null}
+
       <Section title="Body Snapshot">
         <InfoRow label="Weight" value={body.weightKg ? `${body.weightKg} kg` : null} />
         <InfoRow label="Height" value={body.heightCm ? `${body.heightCm} cm` : null} />
       </Section>
+
+      {Object.keys(bodyMeasurements).length > 0 ? (
+        <Section title="Body Measurements & Vitals">
+          <InfoRow label="Blood group" value={BLOOD_GROUP_LABELS[bodyMeasurements.bloodGroup] ?? bodyMeasurements.bloodGroup} />
+          <InfoRow label="Target weight" value={bodyMeasurements.targetWeightKg ? `${bodyMeasurements.targetWeightKg} kg` : null} />
+          <InfoRow label="Waist at navel" value={bodyMeasurements.waistNavelCm ? `${bodyMeasurements.waistNavelCm} cm` : null} />
+          <InfoRow label="Waist at thinnest" value={bodyMeasurements.waistThinnestCm ? `${bodyMeasurements.waistThinnestCm} cm` : null} />
+          <InfoRow label="Hip" value={bodyMeasurements.hipCm ? `${bodyMeasurements.hipCm} cm` : null} />
+          <InfoRow label="Neck" value={bodyMeasurements.neckCm ? `${bodyMeasurements.neckCm} cm` : null} />
+          <InfoRow label="Blood pressure" value={bodyMeasurements.bloodPressure} />
+          <InfoRow label="Pulse rate" value={bodyMeasurements.pulseRate ? `${bodyMeasurements.pulseRate} bpm` : null} />
+          <InfoRow label="Heaviest adult weight" value={bodyMeasurements.heaviestWeightKg ? `${bodyMeasurements.heaviestWeightKg} kg` : null} />
+          <InfoRow label="Lightest adult weight" value={bodyMeasurements.lightestWeightKg ? `${bodyMeasurements.lightestWeightKg} kg` : null} />
+          <InfoRow label="Weight 6 months ago" value={bodyMeasurements.weight6moAgoKg ? `${bodyMeasurements.weight6moAgoKg} kg` : null} />
+          <InfoRow label="Weight 3 years ago" value={bodyMeasurements.weight3yrAgoKg ? `${bodyMeasurements.weight3yrAgoKg} kg` : null} />
+        </Section>
+      ) : null}
 
       <Section title="Daily Rhythm">
         <InfoRow label="Sleep / night" value={lifestyle.sleepHours ? `${lifestyle.sleepHours} hrs` : null} />
@@ -128,15 +249,18 @@ function IntakePayloadView({ submission }: { submission: { payload: Record<strin
         <InfoRow label="Hair health" value={ratingBar(symptoms.hair)} />
       </Section>
 
-      {(digestion.acidityRating || digestion.bloatingRating || digestion.bowelFrequency ||
-        digestion.stoolConsistency?.length || digestion.bloatingTiming?.length || digestion.acidityTriggers?.length) ? (
+      {Object.keys(digestion).length > 0 ? (
         <Section title="Digestion Detail">
           <InfoRow label="Acidity severity" value={ratingBar(digestion.acidityRating)} />
           <InfoRow label="Bloating severity" value={ratingBar(digestion.bloatingRating)} />
+          <InfoRow label="Constipation severity" value={ratingBar(digestion.constipationRating)} />
           <InfoRow label="Bowel frequency" value={digestion.bowelFrequency} />
           <InfoRow label="Stool consistency" value={digestion.stoolConsistency?.join(', ')} />
           <InfoRow label="Bloating timing" value={digestion.bloatingTiming?.join(', ')} />
           <InfoRow label="Acidity triggers" value={digestion.acidityTriggers?.join(', ')} />
+          <InfoRow label="Other digestive symptoms" value={digestion.digestiveSymptoms?.join(', ')} />
+          <InfoRow label="Daily rituals" value={digestion.dailyRituals?.join(', ')} />
+          <InfoRow label="Lunch duration" value={LUNCH_DURATION_LABELS[digestion.lunchDuration] ?? digestion.lunchDuration} />
         </Section>
       ) : null}
 
@@ -150,18 +274,40 @@ function IntakePayloadView({ submission }: { submission: { payload: Record<strin
       {Object.keys(foodPattern).length > 0 ? (
         <Section title="Food Pattern">
           <InfoRow label="Diet type" value={DIET_LABELS[foodPattern.dietType] ?? foodPattern.dietType} />
+          <InfoRow label="Home cooked?" value={HOME_COOKED_LABELS[foodPattern.homeCooked] ?? foodPattern.homeCooked} />
+          <InfoRow label="Who cooks?" value={WHO_COOKS_LABELS[foodPattern.whoCooks] ?? foodPattern.whoCooks} />
+          <InfoRow label="Cooking oil" value={foodPattern.cookingOil} />
           <InfoRow label="Meals / day" value={foodPattern.mealsPerDay} />
           <InfoRow label="Eats out / week" value={foodPattern.eatsOutPerWeek != null ? `${foodPattern.eatsOutPerWeek}x` : null} />
           <InfoRow label="Packaged food" value={foodPattern.packagedFoodFrequency?.replace('_', '/')} />
           <InfoRow label="Sugar drinks" value={foodPattern.sugarDrinks != null ? (foodPattern.sugarDrinks ? 'Yes' : 'No') : null} />
+          <InfoRow label="Energy/carbonated drinks" value={ENERGY_DRINKS_LABELS[foodPattern.energyCarbonatedDrinks] ?? foodPattern.energyCarbonatedDrinks} />
           <InfoRow label="Tea/coffee/day" value={foodPattern.teaCoffeePerDay != null ? `${foodPattern.teaCoffeePerDay}` : null} />
+          <InfoRow label="First cup timing" value={foodPattern.teaCoffeeFirstCupTime} />
           <InfoRow label="Cuisines" value={foodPattern.cuisines?.join(', ')} />
+          <InfoRow label="Food likes" value={foodPattern.foodLikes} />
+          <InfoRow label="Food dislikes" value={foodPattern.foodDislikes} />
+          <InfoRow label="Cravings" value={foodPattern.cravings} />
+          <InfoRow label="Eating speed" value={EATING_SPEED_LABELS[foodPattern.eatingSpeed] ?? foodPattern.eatingSpeed} />
+          <InfoRow label="Binge/emotional eating" value={BINGE_EATING_LABELS[foodPattern.bingeEating] ?? foodPattern.bingeEating} />
         </Section>
       ) : null}
 
-      {opt.medicalHistory?.length ? (
+      {Object.keys(dailyMeals).length > 0 ? (
+        <Section title="Typical Daily Meals">
+          {Object.entries(dailyMeals as Record<string, { time?: string; items?: string[] }>).map(([key, meal]) => {
+            if (!meal || (!meal.time && !meal.items?.length)) return null;
+            const value = [meal.time, meal.items?.join(', ')].filter(Boolean).join(' — ');
+            return <InfoRow key={key} label={MEAL_LABELS[key] ?? key} value={value} />;
+          })}
+        </Section>
+      ) : null}
+
+      {(opt.medicalHistory?.length || opt.allergies || opt.surgicalHistory) ? (
         <Section title="Medical History">
-          <InfoRow label="Diagnosed conditions" value={opt.medicalHistory.join(', ')} />
+          <InfoRow label="Diagnosed conditions" value={opt.medicalHistory?.join(', ')} />
+          <InfoRow label="Allergies / intolerances" value={opt.allergies} />
+          <InfoRow label="Surgical history" value={opt.surgicalHistory} />
         </Section>
       ) : null}
 
@@ -179,19 +325,45 @@ function IntakePayloadView({ submission }: { submission: { payload: Record<strin
         </Section>
       ) : null}
 
+      {Object.keys(oncology).length > 0 ? (
+        <Section title="Oncology / Cancer Nutrition">
+          <InfoRow label="Diagnosis" value={oncology.diagnosis} />
+          <InfoRow label="Type of cancer" value={oncology.type} />
+          <InfoRow label="Date of diagnosis" value={oncology.diagnosisDate} />
+          <InfoRow label="Current treatment" value={oncology.treatment?.map((t: string) => ONCOLOGY_TREATMENT_LABELS[t] ?? t).join(', ')} />
+          <InfoRow label="Treatment cycle / stage" value={oncology.treatmentStage} />
+          <InfoRow label="Treatment-related symptoms" value={oncology.treatmentSymptoms?.map((s: string) => ONCOLOGY_SYMPTOM_LABELS[s] ?? s).join(', ')} />
+          <InfoRow label="Eating pattern changes" value={oncology.eatingPatternChanges} />
+          <InfoRow label="Food preferences in treatment" value={oncology.treatmentFoodPreferences} />
+          <InfoRow label="Food intolerances in treatment" value={oncology.treatmentFoodIntolerances} />
+          <InfoRow label="Nutritional supplements" value={oncology.supplements} />
+          <InfoRow label="Tube feeding" value={oncology.tubeFeeding != null ? (oncology.tubeFeeding ? 'Yes' : 'No') : null} />
+          <InfoRow label="Food safety concerns" value={oncology.foodSafetyConcerns?.map((s: string) => FOOD_SAFETY_LABELS[s] ?? s).join(', ')} />
+        </Section>
+      ) : null}
+
       {Object.keys(lifestyleDepth).length > 1 ? (
         <Section title="Lifestyle Depth">
+          <InfoRow label="Sleep time" value={lifestyleDepth.sleepTime} />
+          <InfoRow label="Wake up time" value={lifestyleDepth.wakeTime} />
+          <InfoRow label="Daily steps" value={lifestyleDepth.dailySteps != null ? lifestyleDepth.dailySteps.toLocaleString() : null} />
+          <InfoRow label="Exercise type" value={lifestyleDepth.exerciseType} />
+          <InfoRow label="Exercise duration" value={EXERCISE_DURATION_LABELS[lifestyleDepth.exerciseDuration] ?? lifestyleDepth.exerciseDuration} />
+          <InfoRow label="Exercise frequency" value={EXERCISE_FREQUENCY_LABELS[lifestyleDepth.exerciseFrequency] ?? lifestyleDepth.exerciseFrequency} />
           <InfoRow label="Stress level" value={ratingBar(lifestyleDepth.stress)} />
+          <InfoRow label="Primary stress source" value={STRESS_SOURCE_LABELS[lifestyleDepth.stressSource] ?? lifestyleDepth.stressSource} />
           <InfoRow label="Smoking" value={lifestyleDepth.smoking?.active != null ? (lifestyleDepth.smoking.active ? `Yes — ${lifestyleDepth.smoking.frequency ?? ''}` : 'No') : null} />
           <InfoRow label="Alcohol" value={lifestyleDepth.alcohol?.active != null ? (lifestyleDepth.alcohol.active ? `Yes — ${lifestyleDepth.alcohol.frequency ?? ''}` : 'No') : null} />
           <InfoRow label="Shift work" value={lifestyleDepth.shiftWork != null ? (lifestyleDepth.shiftWork ? 'Yes' : 'No') : null} />
           <InfoRow label="Travel frequency" value={lifestyleDepth.travelFrequency} />
+          <InfoRow label="Wellness rituals" value={lifestyleDepth.wellnessRituals?.length ? lifestyleDepth.wellnessRituals.join(', ') : null} />
         </Section>
       ) : null}
 
       {branch === 'female' && Object.keys(female).length > 0 ? (
         <Section title="Women's Health">
           <InfoRow label="Periods status" value={female.periodsStatus} />
+          <InfoRow label="Last period date" value={female.lastPeriodDate} />
           <InfoRow label="Cycle length" value={female.cycleLengthDays ? `${female.cycleLengthDays} days` : null} />
           <InfoRow label="Period days" value={female.periodDays ? `${female.periodDays} days` : null} />
           <InfoRow label="Flow" value={female.flow?.join(', ')} />
@@ -200,9 +372,38 @@ function IntakePayloadView({ submission }: { submission: { payload: Record<strin
           <InfoRow label="Endometriosis surgery" value={female.endometriosisSurgery != null ? (female.endometriosisSurgery ? 'Yes' : 'No') : null} />
           <InfoRow label="Hysterectomy" value={female.hysterectomy != null ? (female.hysterectomy ? 'Yes' : 'No') : null} />
           <InfoRow label="Hormonal intervention" value={female.hormonalIntervention?.active != null ? (female.hormonalIntervention.active ? `Yes — ${female.hormonalIntervention.types?.join(', ') ?? ''}` : 'No') : null} />
-          <InfoRow label="Pregnancy status" value={female.pregnancy?.status} />
-          <InfoRow label="Menopause" value={female.menopause?.reached != null ? (female.menopause.reached ? `Yes, age ${female.menopause.ageAt ?? '?'} (${female.menopause.type ?? ''})` : 'No') : null} />
           <InfoRow label="PMS symptoms" value={female.pmsSymptoms?.join(', ')} />
+          <InfoRow label="Pregnancy / breastfeeding status" value={pregnancy.status} />
+          <InfoRow label="Menopause" value={female.menopause?.reached != null ? (female.menopause.reached ? `Yes, age ${female.menopause.ageAt ?? '?'} (${female.menopause.type ?? ''})` : 'No') : null} />
+        </Section>
+      ) : null}
+
+      {pregnancy.status === 'trying' && Object.keys(fertility).length > 0 ? (
+        <Section title="Fertility Details">
+          <InfoRow label="Trying to conceive for" value={FERTILITY_DURATION_LABELS[fertility.tryingDuration] ?? fertility.tryingDuration} />
+          <InfoRow label="Fertility treatment" value={FERTILITY_TREATMENT_LABELS[fertility.treatment] ?? fertility.treatment} />
+          <InfoRow label="Diagnosed fertility conditions" value={fertility.diagnosedConditions} />
+        </Section>
+      ) : null}
+
+      {pregnancy.status === 'pregnant' ? (
+        <Section title="Pregnancy Details">
+          <InfoRow label="Trimester" value={pregnancy.trimester} />
+          <InfoRow label="Expected due date" value={pregnancy.dueDate} />
+          <InfoRow label="Pre-pregnancy weight" value={pregnancy.prePregnancyWeightKg ? `${pregnancy.prePregnancyWeightKg} kg` : null} />
+          <InfoRow label="Gestational diabetes" value={pregnancy.gestationalDiabetes != null ? (pregnancy.gestationalDiabetes ? 'Yes' : 'No') : null} />
+          <InfoRow label="Pregnancy-induced hypertension" value={pregnancy.pregnancyInducedHypertension != null ? (pregnancy.pregnancyInducedHypertension ? 'Yes' : 'No') : null} />
+          <InfoRow label="High-risk pregnancy" value={pregnancy.highRiskPregnancy != null ? (pregnancy.highRiskPregnancy ? 'Yes' : 'No') : null} />
+          <InfoRow label="Previous pregnancies" value={pregnancy.previousPregnanciesCount} />
+          <InfoRow label="Prenatal supplements" value={pregnancy.prenatalSupplements} />
+          <InfoRow label="Pregnancy symptoms" value={pregnancy.symptoms?.join(', ')} />
+        </Section>
+      ) : null}
+
+      {pregnancy.status === 'lactating' ? (
+        <Section title="Lactation Details">
+          <InfoRow label="Breastfeeding difficulties" value={lactation.breastfeedingDifficulties} />
+          <InfoRow label="Supplementing with formula" value={lactation.formulaSupplementing != null ? (lactation.formulaSupplementing ? 'Yes' : 'No') : null} />
         </Section>
       ) : null}
 
@@ -213,6 +414,7 @@ function IntakePayloadView({ submission }: { submission: { payload: Record<strin
           <InfoRow label="Testosterone status" value={male.testosteroneStatus} />
           <InfoRow label="TRT use" value={male.trtUse != null ? (male.trtUse ? 'Yes' : 'No') : null} />
           <InfoRow label="Anabolic / steroids" value={male.steroidUse?.status} />
+          <InfoRow label="Substances used" value={male.steroidUse?.substances?.join(', ')} />
           <InfoRow label="Urinary symptoms" value={male.urinarySymptoms?.join(', ')} />
           <InfoRow label="Prostate concerns" value={male.prostateConcerns != null ? (male.prostateConcerns ? 'Yes' : 'No') : null} />
         </Section>
@@ -220,6 +422,12 @@ function IntakePayloadView({ submission }: { submission: { payload: Record<strin
 
       {branch === 'child' && Object.keys(child).length > 0 ? (
         <Section title="Child-specific">
+          <InfoRow label="Gender" value={child.gender} />
+          <InfoRow label="Birth weight" value={child.birthWeightKg ? `${child.birthWeightKg} kg` : null} />
+          <InfoRow label="Weight-for-age percentile" value={child.weightForAgePercentile != null ? `${child.weightForAgePercentile}%ile` : null} />
+          <InfoRow label="Height-for-age percentile" value={child.heightForAgePercentile != null ? `${child.heightForAgePercentile}%ile` : null} />
+          <InfoRow label="Mother's medical history" value={child.motherMedicalHistory} />
+          <InfoRow label="Father's medical history" value={child.fatherMedicalHistory} />
           <InfoRow label="School grade" value={child.schoolGrade} />
           <InfoRow label="Stamina" value={ratingBar(child.stamina)} />
           <InfoRow label="Attention span" value={ratingBar(child.attentionSpan)} />
@@ -227,6 +435,7 @@ function IntakePayloadView({ submission }: { submission: { payload: Record<strin
           <InfoRow label="Focus" value={ratingBar(child.focus)} />
           <InfoRow label="Appetite" value={child.appetite} />
           <InfoRow label="Picky eater" value={ratingBar(child.pickyEater)} />
+          <InfoRow label="Feeding concerns" value={child.feedingConcerns?.join(', ')} />
           <InfoRow label="Sports / week" value={child.sportsPerWeek != null ? `${child.sportsPerWeek}x` : null} />
           <InfoRow label="Sports timing" value={child.sportsTiming?.join(', ')} />
           <InfoRow label="Outdoor sports" value={child.outdoorSports?.join(', ')} />
@@ -234,6 +443,16 @@ function IntakePayloadView({ submission }: { submission: { payload: Record<strin
           <InfoRow label="Packaged food" value={child.packagedFoodFrequency?.replace('_', '/')} />
           <InfoRow label="Screen time" value={child.screenTimeHrs != null ? `${child.screenTimeHrs} hrs/day` : null} />
           <InfoRow label="Growth concerns" value={child.growthConcerns?.join(', ')} />
+        </Section>
+      ) : null}
+
+      {Object.keys(childFeeding).length > 0 ? (
+        <Section title="Infant Feeding History">
+          <InfoRow label="Breastfed" value={childFeeding.breastfed != null ? (childFeeding.breastfed ? 'Yes' : 'No') : null} />
+          <InfoRow label="Breastfeeding duration" value={childFeeding.breastfeedingDurationMonths != null ? `${childFeeding.breastfeedingDurationMonths} months` : null} />
+          <InfoRow label="Formula fed" value={childFeeding.formulaFed != null ? (childFeeding.formulaFed ? 'Yes' : 'No') : null} />
+          <InfoRow label="Age started solids" value={childFeeding.solidsStartAgeMonths != null ? `${childFeeding.solidsStartAgeMonths} months` : null} />
+          <InfoRow label="Feeding difficulties" value={childFeeding.feedingDifficulties} />
         </Section>
       ) : null}
 
@@ -310,6 +529,12 @@ function ProgressRow({ entry }: { entry: ProgressEntry }) {
           {entry.memory_rating != null && <InfoRow label="Memory" value={ratingBar(entry.memory_rating)} />}
           {entry.focus_rating != null && <InfoRow label="Focus" value={ratingBar(entry.focus_rating)} />}
           {entry.appetite && <InfoRow label="Appetite" value={entry.appetite} />}
+          {/* Infant feeding */}
+          {entry.breastfed != null && <InfoRow label="Breastfed" value={entry.breastfed ? 'Yes' : 'No'} />}
+          {entry.breastfeeding_duration_months != null && <InfoRow label="Breastfeeding duration" value={`${entry.breastfeeding_duration_months} months`} />}
+          {entry.formula_fed != null && <InfoRow label="Formula fed" value={entry.formula_fed ? 'Yes' : 'No'} />}
+          {entry.solids_start_age_months != null && <InfoRow label="Solids started at" value={`${entry.solids_start_age_months} months`} />}
+          {entry.feeding_difficulties && <InfoRow label="Feeding difficulties" value={entry.feeding_difficulties} />}
           {entry.notes && <div className="mt-2 text-sm text-muted-foreground border-t pt-2">{entry.notes}</div>}
         </div>
       )}
@@ -320,6 +545,25 @@ function ProgressRow({ entry }: { entry: ProgressEntry }) {
 // ---------------------------------------------------------------------------
 // Profile Editor (inline)
 // ---------------------------------------------------------------------------
+function calcBmi(weightKg: number | null, heightCm: number | null) {
+  if (!weightKg || !heightCm || heightCm <= 0) return null;
+  const m = heightCm / 100;
+  return Math.round((weightKg / (m * m)) * 10) / 10;
+}
+
+function formatAge(dob: string | null | undefined): string | null {
+  if (!dob) return null;
+  const d = new Date(dob);
+  if (Number.isNaN(d.getTime())) return null;
+  const now = new Date();
+  let totalMonths = (now.getFullYear() - d.getFullYear()) * 12 + (now.getMonth() - d.getMonth());
+  if (now.getDate() < d.getDate()) totalMonths--;
+  if (totalMonths < 0 || totalMonths > 120 * 12) return null;
+  const years = Math.floor(totalMonths / 12);
+  if (years >= 1) return years === 1 ? '1 year' : `${years} years`;
+  return totalMonths === 1 ? '1 month' : `${totalMonths} months`;
+}
+
 function ProfileTab({ client }: { client: any }) {
   const [editing, setEditing] = useState(false);
   const updateClient = useUpdateClient();
@@ -336,10 +580,13 @@ function ProfileTab({ client }: { client: any }) {
   });
 
   const handleSave = async () => {
+    const weight = form.weight ? parseFloat(form.weight) : null;
+    const height = form.height ? parseFloat(form.height) : null;
     await updateClient.mutateAsync({
       id: client.id,
-      weight: form.weight ? parseFloat(form.weight) : null,
-      height: form.height ? parseFloat(form.height) : null,
+      weight,
+      height,
+      bmi: calcBmi(weight, height),
       goal: (form.goal || null) as any,
       diet_preference: (form.diet_preference || null) as any,
       supplements: form.supplements || null,
@@ -387,6 +634,7 @@ function ProfileTab({ client }: { client: any }) {
           <div><p className="mb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">Email</p><p className="text-sm">{client.email ?? '—'}</p></div>
           <div><p className="mb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">Phone</p><p className="text-sm">{client.phone ?? '—'}</p></div>
           <div><p className="mb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">Date of Birth</p><p className="text-sm">{client.date_of_birth ?? '—'}</p></div>
+          <div><p className="mb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">Age</p><p className="text-sm">{formatAge(client.date_of_birth) ?? '—'}</p></div>
           <div><p className="mb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">Gender</p><p className="text-sm capitalize">{client.gender ?? '—'}</p></div>
           <div><p className="mb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">City</p><p className="text-sm">{client.address ?? '—'}</p></div>
         </CardContent></Card>
@@ -395,6 +643,12 @@ function ProfileTab({ client }: { client: any }) {
           <CardHeader className="p-0 pb-2"><CardTitle className="text-sm">Health Profile</CardTitle></CardHeader>
           <F label="Weight (kg)" field="weight" type="number" />
           <F label="Height (cm)" field="height" type="number" />
+          <div>
+            <p className="mb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">BMI</p>
+            <p className="text-sm">
+              {calcBmi(form.weight ? parseFloat(form.weight) : null, form.height ? parseFloat(form.height) : null) ?? '—'}
+            </p>
+          </div>
           <div>
             <p className="mb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">Goal</p>
             {editing ? (
@@ -446,7 +700,7 @@ function ProfileTab({ client }: { client: any }) {
 type MetricDef = { key: string; label: string; unit: string; color: string; goodDir: 1 | -1 };
 
 const BODY_METRICS: MetricDef[] = [
-  { key: 'weight_kg', label: 'Weight', unit: 'kg', color: '#00a896', goodDir: -1 },
+  { key: 'weight_kg', label: 'Weight', unit: 'kg', color: '#FF4D06', goodDir: -1 },
 ];
 
 const SYMPTOM_METRICS: MetricDef[] = [
@@ -826,7 +1080,7 @@ const ClientDetail = () => {
         </TabsContent>
 
         <TabsContent value="measurements">
-          <ClientMeasurementsPanel clientId={id!} clientName={client?.name ?? ''} />
+          <ClientMeasurementsPanel clientId={id!} clientName={client?.name ?? ''} heightCm={client?.height ?? null} />
         </TabsContent>
       </Tabs>
     </DashboardLayout>

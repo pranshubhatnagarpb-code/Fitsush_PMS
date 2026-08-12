@@ -1547,7 +1547,7 @@ export const AIDietPlanGenerator = ({ clients, editModeData, onClose }: Props) =
 
     let logoDataUrl = '';
     try {
-      const response = await fetch('/MKR Logo.webp');
+      const response = await fetch('/fitsush-logo.webp');
       const blob = await response.blob();
       const reader = new FileReader();
       logoDataUrl = await new Promise((resolve) => {
@@ -1599,7 +1599,6 @@ export const AIDietPlanGenerator = ({ clients, editModeData, onClose }: Props) =
         return startDateStr;
       }
     };
-
     // Apply any pending cell edit so the PDF reflects what the user typed even if they didn't click ✓
     const effectivePlan = editingCell && editValue.trim()
       ? {
@@ -1620,7 +1619,7 @@ export const AIDietPlanGenerator = ({ clients, editModeData, onClose }: Props) =
       : generatedPlan;
 
     const dayGroupTables = effectivePlan.dayGroups.map(group => `
-      <h3 style="font-size: 14px; color: #5a7a32; font-weight: 700; margin: 18px 0 8px; padding-bottom: 4px; border-bottom: 1px solid #d4e4bc;">${group.label}${group.dates ? ` <span style="font-size: 12px; color: #666; font-weight: normal;">(${group.dates})</span>` : ''}</h3>
+      <h3 style="font-size: 14px; color: #FF4D06; font-weight: 700; margin: 18px 0 8px; padding-bottom: 4px; border-bottom: 1px solid #FED7AA;">${group.label}${group.dates ? ` <span style="font-size: 12px; color: #666; font-weight: normal;">(${group.dates})</span>` : ''}</h3>
       <table>
         <thead>
           <tr>
@@ -1648,15 +1647,14 @@ export const AIDietPlanGenerator = ({ clients, editModeData, onClose }: Props) =
     const content = `<!DOCTYPE html>
 <html>
 <head>
-  <title>${generatedPlan.planName}</title>
+  <title>${pdfHeading}</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 25px 35px; color: #333; font-size: 11px; line-height: 1.4; }
-    .header { text-align: center; margin-bottom: 25px; border-bottom: 2px solid #5a7a32; padding-bottom: 15px; }
+    .header { text-align: center; margin-bottom: 25px; border-bottom: 2px solid #FF4D06; padding-bottom: 15px; }
     .header-logo { width: 80px; height: auto; margin-bottom: 10px; }
-    .header h1 { color: #5a7a32; font-size: 20px; margin-bottom: 5px; }
+    .header h1 { color: #FF4D06; font-size: 20px; margin-bottom: 5px; }
     .header p { color: #666; font-size: 12px; }
-    .week-badge { display: inline-block; background: #5a7a32; color: white; padding: 3px 8px; border-radius: 12px; font-size: 10px; margin-left: 10px; }
     .client-details { background: #f0f7ff; border: 1px solid #b3d1ff; border-radius: 8px; padding: 15px; margin-bottom: 20px; }
     .client-details h3 { color: #1a5fb4; font-size: 14px; margin-bottom: 10px; }
     .client-details-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; font-size: 10px; }
@@ -1667,11 +1665,11 @@ export const AIDietPlanGenerator = ({ clients, editModeData, onClose }: Props) =
     .condition-badge { display: inline-block; background: #e3f2fd; color: #1976d2; padding: 2px 6px; border-radius: 10px; font-size: 9px; margin-right: 4px; margin-bottom: 4px; }
     .client-notes { margin-top: 10px; }
     .client-notes h4 { font-size: 10px; margin-bottom: 5px; color: #555; }
-    .intro { background: #f9f9f9; padding: 15px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #5a7a32; }
+    .intro { background: #f9f9f9; padding: 15px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #FF4D06; }
     .intro p { margin: 0; font-style: italic; }
-    .section-title { color: #5a7a32; font-size: 16px; font-weight: bold; margin: 25px 0 15px 0; border-bottom: 1px solid #d4e4bc; padding-bottom: 5px; }
+    .section-title { color: #FF4D06; font-size: 16px; font-weight: bold; margin: 25px 0 15px 0; border-bottom: 1px solid #FED7AA; padding-bottom: 5px; }
     table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 10px; }
-    th { background: #5a7a32; color: white; padding: 8px; text-align: left; font-weight: bold; }
+    th { background: #FF4D06; color: white; padding: 8px; text-align: left; font-weight: bold; }
     td { padding: 8px; border-bottom: 1px solid #ddd; vertical-align: top; }
     tr:nth-child(even) { background: #f9f9f9; }
     .affirmations { background: #fef9e7; padding: 15px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #f39c12; }
@@ -1709,7 +1707,7 @@ export const AIDietPlanGenerator = ({ clients, editModeData, onClose }: Props) =
 </head>
 <body>
   <div class="header">
-    <img src="${logoDataUrl}" alt="MKR Logo" class="header-logo" />
+    <img src="${logoDataUrl}" alt="Fitsush Logo" class="header-logo" />
     <h1>${generatedPlan.planName}</h1>
     <p>Personalized Diet Plan for ${clientDetails.name}
       <span class="week-badge">${getFullPlanName()}</span>
@@ -1831,7 +1829,7 @@ export const AIDietPlanGenerator = ({ clients, editModeData, onClose }: Props) =
     const recipesHtml = recipes.length === 0 ? '' : `
   <div class="page-break" style="page-break-before: always;"></div>
   <div style="margin-top: 24px;">
-    <h2 style="color: #5a7a32; font-size: 18px; border-bottom: 2px solid #5a7a32; padding-bottom: 6px; margin-bottom: 14px;">Recipes for mentioned meals</h2>
+    <h2 style="color: #FF4D06; font-size: 18px; border-bottom: 2px solid #FF4D06; padding-bottom: 6px; margin-bottom: 14px;">Recipes for mentioned meals</h2>
     ${recipes.map(r => `
       <div style="margin-bottom: 16px; page-break-inside: avoid;">
         <h3 style="color: #1a5fb4; font-size: 13px; margin-bottom: 6px;">${escapePlainText(r.Meal_name)}</h3>
@@ -1864,7 +1862,7 @@ export const AIDietPlanGenerator = ({ clients, editModeData, onClose }: Props) =
   })())}
 
   <div class="footer">
-    © ${new Date().getFullYear()} Dr. Malika Kabra Rathi. This nutrition plan is personalized and should be followed as advised.
+    © ${new Date().getFullYear()} Fitsush. This nutrition plan is personalized and should be followed as advised.
   </div>
 </body>
 </html>`;

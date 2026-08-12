@@ -17,7 +17,6 @@ interface BodyMeasurementFormData {
   client_id: string;
   measurement_date: string;
   weight: string;
-  bmi: string;
   body_fat_percent: string;
   visceral_fat: string;
   muscle_mass: string;
@@ -39,7 +38,6 @@ const emptyFormData: BodyMeasurementFormData = {
   client_id: '',
   measurement_date: today,
   weight: '',
-  bmi: '',
   body_fat_percent: '',
   visceral_fat: '',
   muscle_mass: '',
@@ -70,14 +68,19 @@ const parseOptionalNumber = (value: string) => {
   return Number.isFinite(parsed) ? parsed : null;
 };
 
-const bcaFields: Array<{ key: keyof Omit<BodyMeasurementFormData, 'client_id' | 'measurement_date' | 'notes' | 'neck' | 'chest' | 'tummy' | 'waist' | 'hip' | 'thigh' | 'arm'>; label: string; placeholder: string }> = [
+const calcBmi = (weightKg: number | null, heightCm: number | null | undefined) => {
+  if (!weightKg || !heightCm || heightCm <= 0) return null;
+  const m = heightCm / 100;
+  return Math.round((weightKg / (m * m)) * 10) / 10;
+};
+
+const bcaFields: Array<{ key: keyof Omit<BodyMeasurementFormData, 'client_id' | 'measurement_date' | 'notes' | 'neck' | 'chest' | 'tummy' | 'waist' | 'hip' | 'thigh' | 'arm' | 'bmi'>; label: string; placeholder: string }> = [
   { key: 'weight', label: 'Weight (kg)', placeholder: 'e.g., 72.4' },
   { key: 'body_fat_percent', label: 'Body Fat %', placeholder: 'e.g., 28.5' },
   { key: 'visceral_fat', label: 'VF (Visceral Fat)', placeholder: 'e.g., 12' },
   { key: 'muscle_mass', label: 'Muscle Mass', placeholder: 'e.g., 35.2' },
   { key: 'body_age', label: 'Body Age', placeholder: 'e.g., 32' },
   { key: 'resting_metabolism', label: 'RM (Resting Metabolism)', placeholder: 'e.g., 1650' },
-  { key: 'bmi', label: 'BMI', placeholder: 'e.g., 24.1' },
 ];
 
 const measurementFields: Array<{ key: keyof Omit<BodyMeasurementFormData, 'client_id' | 'measurement_date' | 'notes' | 'weight' | 'bmi' | 'body_fat_percent' | 'visceral_fat' | 'muscle_mass' | 'body_age' | 'resting_metabolism'>; label: string; placeholder: string }> = [
@@ -101,7 +104,6 @@ export const BodyMeasurementFormDialog = ({ open, onOpenChange, measurement, def
         client_id: measurement.client_id,
         measurement_date: measurement.measurement_date || today,
         weight: measurement.weight?.toString() || '',
-        bmi: measurement.bmi?.toString() || '',
         body_fat_percent: measurement.body_fat_percent?.toString() || '',
         visceral_fat: (measurement as any).visceral_fat?.toString() || '',
         muscle_mass: (measurement as any).muscle_mass?.toString() || '',
@@ -126,10 +128,13 @@ export const BodyMeasurementFormDialog = ({ open, onOpenChange, measurement, def
     });
   }, [measurement, defaultClientId, open]);
 
-  const hasAnyMeasurement = useMemo(() => 
-    [...bcaFields, ...measurementFields, { key: 'weight', label: '', placeholder: '' }].some(({ key }) => !!formData[key as keyof BodyMeasurementFormData]?.trim()) 
-    || !!formData.notes.trim(), 
+  const hasAnyMeasurement = useMemo(() =>
+    [...bcaFields, ...measurementFields, { key: 'weight', label: '', placeholder: '' }].some(({ key }) => !!formData[key as keyof BodyMeasurementFormData]?.trim())
+    || !!formData.notes.trim(),
   [formData]);
+
+  const selectedClient = clients.find((c) => c.id === formData.client_id);
+  const bmi = calcBmi(parseOptionalNumber(formData.weight), selectedClient?.height);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -138,7 +143,7 @@ export const BodyMeasurementFormDialog = ({ open, onOpenChange, measurement, def
       client_id: formData.client_id,
       measurement_date: formData.measurement_date,
       weight: parseOptionalNumber(formData.weight),
-      bmi: parseOptionalNumber(formData.bmi),
+      bmi,
       body_fat_percent: parseOptionalNumber(formData.body_fat_percent),
       visceral_fat: parseOptionalNumber(formData.visceral_fat),
       muscle_mass: parseOptionalNumber(formData.muscle_mass),
@@ -210,6 +215,12 @@ export const BodyMeasurementFormDialog = ({ open, onOpenChange, measurement, def
                   />
                 </div>
               ))}
+              <div className="space-y-2">
+                <Label>BMI</Label>
+                <div className="flex h-9 items-center rounded-md border bg-muted px-3 text-sm text-muted-foreground">
+                  {bmi ?? (selectedClient ? (selectedClient.height ? '—' : 'No height on file for this client') : 'Select a client')}
+                </div>
+              </div>
             </div>
           </div>
 

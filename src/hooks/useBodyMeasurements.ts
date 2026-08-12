@@ -52,6 +52,12 @@ export interface BodyMeasurementInput {
 const TABLE_NAME = 'body_measurements';
 const bodyMeasurementsTable = () => (supabase as any).from(TABLE_NAME);
 
+const calcBmi = (weightKg: number | null, heightCm: number | null | undefined) => {
+  if (!weightKg || !heightCm || heightCm <= 0) return null;
+  const m = heightCm / 100;
+  return Math.round((weightKg / (m * m)) * 10) / 10;
+};
+
 export const hasAnyMeasurementValue = (measurement: Partial<BodyMeasurementInput>) => {
   const numericFields: Array<keyof Omit<BodyMeasurementInput, 'client_id' | 'measurement_date' | 'notes'>> = [
     'weight',
@@ -79,7 +85,7 @@ export const useBodyMeasurements = (clientId?: string) => {
     queryKey: ['body-measurements', clientId ?? 'all'],
     queryFn: async () => {
       let query = bodyMeasurementsTable()
-        .select('*, clients(name)')
+        .select('*, clients(name, height)')
         .order('measurement_date', { ascending: false })
         .order('created_at', { ascending: false });
 
@@ -93,6 +99,7 @@ export const useBodyMeasurements = (clientId?: string) => {
 
       return (data || []).map((item: any) => ({
         ...item,
+        bmi: item.bmi ?? calcBmi(item.weight, item.clients?.height),
         client_name: item.clients?.name || 'Unknown',
       })) as BodyMeasurementWithClientName[];
     },

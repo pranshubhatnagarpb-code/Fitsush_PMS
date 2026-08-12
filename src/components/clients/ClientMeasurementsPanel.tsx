@@ -18,12 +18,12 @@ import { format } from 'date-fns';
 interface Props {
   clientId: string;
   clientName: string;
+  heightCm?: number | null;
 }
 
-const emptyForm = (): Omit<MeasurementInput, 'client_id'> => ({
+const emptyForm = (): Omit<MeasurementInput, 'client_id' | 'bmi'> => ({
   measurement_date: new Date().toISOString().split('T')[0],
   weight: null,
-  bmi: null,
   body_fat_percentage: null,
   waist: null,
   hip: null,
@@ -34,12 +34,19 @@ const emptyForm = (): Omit<MeasurementInput, 'client_id'> => ({
   measurement_notes: null,
 });
 
-export const ClientMeasurementsPanel = ({ clientId, clientName }: Props) => {
+const calcBmi = (weightKg: number | null, heightCm: number | null | undefined) => {
+  if (!weightKg || !heightCm || heightCm <= 0) return null;
+  const m = heightCm / 100;
+  return Math.round((weightKg / (m * m)) * 10) / 10;
+};
+
+export const ClientMeasurementsPanel = ({ clientId, clientName, heightCm }: Props) => {
   const { data: measurements = [], isLoading } = useClientMeasurements(clientId);
   const createMeasurement = useCreateMeasurement();
   const deleteMeasurement = useDeleteMeasurement();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState(emptyForm());
+  const bmi = calcBmi(form.weight ?? null, heightCm);
 
   const numField = (key: keyof typeof form, label: string) => (
     <div className="space-y-1">
@@ -57,7 +64,7 @@ export const ClientMeasurementsPanel = ({ clientId, clientName }: Props) => {
   );
 
   const handleSave = async () => {
-    await createMeasurement.mutateAsync({ ...form, client_id: clientId });
+    await createMeasurement.mutateAsync({ ...form, bmi, client_id: clientId });
     setForm(emptyForm());
     setDialogOpen(false);
   };
@@ -111,7 +118,7 @@ export const ClientMeasurementsPanel = ({ clientId, clientName }: Props) => {
                     {format(new Date(m.measurement_date), 'dd MMM yyyy')}
                   </TableCell>
                   <TableCell>{m.weight ?? '-'}</TableCell>
-                  <TableCell>{m.bmi ?? '-'}</TableCell>
+                  <TableCell>{m.bmi ?? calcBmi(m.weight, heightCm) ?? '-'}</TableCell>
                   <TableCell>{m.body_fat_percentage ?? '-'}</TableCell>
                   <TableCell>{m.waist ?? '-'}</TableCell>
                   <TableCell>{m.hip ?? '-'}</TableCell>
@@ -158,7 +165,12 @@ export const ClientMeasurementsPanel = ({ clientId, clientName }: Props) => {
             </div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               {numField('weight', 'Weight (kg)')}
-              {numField('bmi', 'BMI')}
+              <div className="space-y-1">
+                <Label className="text-xs">BMI</Label>
+                <div className="flex h-9 items-center rounded-md border bg-muted px-3 text-sm text-muted-foreground">
+                  {bmi ?? (heightCm ? '—' : 'No height on file')}
+                </div>
+              </div>
               {numField('body_fat_percentage', 'Body Fat %')}
             </div>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-3">

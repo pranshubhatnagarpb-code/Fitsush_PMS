@@ -6,7 +6,6 @@ import {
   useDashboardStats,
   useTodaysAppointments,
   useUpcomingReceivables,
-  useBalanceReceivables,
   useServiceRenewalReminders,
   useAtRiskClients,
 } from '@/hooks/useDashboardData';
@@ -19,7 +18,6 @@ const Dashboard = () => {
   const { data: stats, isLoading: statsLoading } = useDashboardStats();
   const { data: appointments = [] } = useTodaysAppointments();
   const { data: birthdays = [] } = useTodaysBirthdays();
-  const { data: balanceReceivables = [] } = useBalanceReceivables();
   const { data: serviceRenewals = [] } = useServiceRenewalReminders();
   const { data: atRiskClients = [] } = useAtRiskClients();
 
@@ -46,28 +44,6 @@ const Dashboard = () => {
           {item.days_left <= 0 ? `Expired ${Math.abs(item.days_left)}d ago` : `${item.days_left}d left`}
         </span>
       )
-    },
-  ];
-
-  const balanceReceivableColumns = [
-    { 
-      key: 'name', 
-      header: 'Client Name',
-      render: (item: any) => (
-        <span className="text-primary font-medium cursor-pointer hover:underline">
-          {item.name || '-'}
-        </span>
-      )
-    },
-    { 
-      key: 'total_receivables', 
-      header: 'Unpaid Amount',
-      render: (item: any) => `₹${Number(item.total_receivables || 0).toLocaleString()}`
-    },
-    { 
-      key: 'phone', 
-      header: 'Mobile',
-      render: (item: any) => item.phone || '-'
     },
   ];
 
@@ -193,21 +169,13 @@ const Dashboard = () => {
       </div>
 
       {/* Tables Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4">
         <DataTable
           title="Service Renewal Reminders"
           tooltip="Clients whose service is ending within 7 days or already expired"
           columns={serviceRenewalColumns}
           data={serviceRenewals}
           emptyMessage="No upcoming renewals"
-        />
-
-        <DataTable
-          title="Balance Receivable"
-          tooltip="Outstanding payment balances"
-          columns={balanceReceivableColumns}
-          data={balanceReceivables}
-          emptyMessage="No outstanding balances"
         />
       </div>
     </DashboardLayout>

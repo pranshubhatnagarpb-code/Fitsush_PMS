@@ -62,10 +62,10 @@ const Login = () => {
       >
         <div className="flex items-center gap-3">
           <div className="flex items-center justify-center w-9 h-9 rounded-xl bg-primary/20 ring-1 ring-primary/30">
-            <img src="/MKR Logo.webp" alt="MKR" className="w-6 h-6 object-contain" />
+            <img src="/fitsush-logo.webp" alt="Fitsush" className="w-6 h-6 object-contain" />
           </div>
           <div>
-            <p className="text-sm font-bold text-white tracking-wide">MKR CLINIC</p>
+            <p className="text-sm font-bold text-white tracking-wide">FITSUSH</p>
             <p className="text-[10px] text-[hsl(var(--sidebar-foreground))]">Practice Management</p>
           </div>
         </div>
@@ -86,7 +86,7 @@ const Login = () => {
         </div>
 
         <p className="text-[11px] text-[hsl(var(--sidebar-foreground)/0.4)]">
-          © 2026 Dr. Malika Kabra Rathi
+          © 2026 Fitsush
         </p>
       </div>
 
@@ -95,9 +95,9 @@ const Login = () => {
         <div className="w-full max-w-sm">
           {/* Mobile logo */}
           <div className="flex items-center gap-3 mb-8 lg:hidden">
-            <img src="/MKR Logo.webp" alt="MKR" className="w-10 h-6 object-contain" />
+            <img src="/fitsush-logo.webp" alt="Fitsush" className="w-10 h-6 object-contain" />
             <div>
-              <p className="text-base font-bold text-foreground">MKR CLINIC</p>
+              <p className="text-base font-bold text-foreground">FITSUSH</p>
               <p className="text-xs text-muted-foreground">Practice Management</p>
             </div>
           </div>
@@ -117,7 +117,7 @@ const Login = () => {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@mkrclinic.in"
+                placeholder="you@fitsush.com"
                 className="h-10 bg-white border-border/80 focus-visible:ring-primary/30"
                 required
               />
