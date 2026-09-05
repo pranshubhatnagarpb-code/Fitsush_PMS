@@ -1,1 +1,12 @@
 node_modules
+
+# Environment files (never commit secrets)
+.env
+.env.*
+!.env.example
+apps/**/.env
+apps/**/.env.*
+!apps/**/.env.example
+
+# Editor local-history snapshots (can contain stale copies of the above)
+.history/
