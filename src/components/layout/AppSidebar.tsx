@@ -14,7 +14,6 @@ import {
   LogOut,
   Menu,
   X,
-  Activity,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSidebar } from './DashboardLayout';
@@ -36,7 +35,6 @@ const navGroups = [
       { title: 'Appointments', icon: CalendarDays, path: '/appointments' },
       { title: 'Blood Reports', icon: FlaskConical, path: '/blood-reports' },
       { title: 'Body Measurements', icon: Ruler, path: '/body-measurements' },
-      { title: 'Client Measurements', icon: Activity, path: '/measurements' },
     ],
   },
   {

@@ -8,7 +8,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Home, ChevronRight, Plus, FileText, Calendar, Pencil, Trash2, Copy, Eye, RefreshCw, Check, X } from 'lucide-react';
+import { Home, ChevronRight, Plus, FileText, Calendar, Pencil, Trash2, Copy, Eye, RefreshCw, Check, X, Upload, Pill, Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
 import {
   useDietChartTemplates,
   useCreateTemplate,
@@ -17,7 +18,9 @@ import {
   type DietChartTemplate,
   type TemplateDay,
   type TemplateMeal,
+  type TemplateSupplement,
 } from '@/hooks/useDietChartTemplates';
+import { importTemplateFromFile } from '@/lib/dietTemplateImporter';
 
 // Tabular layout interfaces
 interface TemplateMealTimeRow {
@@ -42,6 +45,8 @@ const DEFAULT_DAY: TemplateDay = {
   ],
 };
 
+const DEFAULT_SUPPLEMENT: TemplateSupplement = { time: '', supplement: '', notes: '' };
+
 const DRAFT_KEY = 'template_form_draft';
 
 const Templates = () => {
@@ -61,6 +66,9 @@ const Templates = () => {
   const [editingMealTime, setEditingMealTime] = useState<number | null>(null);
   const [mealTimeEditValue, setMealTimeEditValue] = useState('');
   const [searchFilter, setSearchFilter] = useState('');
+  const [isImporting, setIsImporting] = useState(false);
+  const [importWarnings, setImportWarnings] = useState<string[]>([]);
+  const importFileInputRef = useRef<HTMLInputElement>(null);
 
   // Filter templates based on search
   const filteredTemplates = templates.filter(template => {
@@ -82,16 +90,17 @@ const Templates = () => {
   const [category, setCategory] = useState('General Wellness');
   const [instructions, setInstructions] = useState('');
   const [days, setDays] = useState<TemplateDay[]>([{ ...DEFAULT_DAY, meals: DEFAULT_DAY.meals.map(m => ({ ...m })) }]);
+  const [supplements, setSupplements] = useState<TemplateSupplement[]>([]);
 
   // Auto-save draft to localStorage whenever form changes (new templates only)
   useEffect(() => {
     if (!isEditorOpen || editingTemplate) return;
     const hasMeaningfulData = name.trim() || description.trim() || days.some(d => d.meals.some(m => m.meal.trim()));
     if (hasMeaningfulData) {
-      localStorage.setItem(DRAFT_KEY, JSON.stringify({ name, description, category, instructions, days }));
+      localStorage.setItem(DRAFT_KEY, JSON.stringify({ name, description, category, instructions, days, supplements }));
       setHasUnsavedChanges(true);
     }
-  }, [name, description, category, instructions, days, isEditorOpen, editingTemplate]);
+  }, [name, description, category, instructions, days, supplements, isEditorOpen, editingTemplate]);
 
   const resetForm = () => {
     setName('');
@@ -99,8 +108,10 @@ const Templates = () => {
     setCategory('General Wellness');
     setInstructions('');
     setDays([{ ...DEFAULT_DAY, meals: DEFAULT_DAY.meals.map(m => ({ ...m })) }]);
+    setSupplements([]);
     setEditingTemplate(null);
     setHasUnsavedChanges(false);
+    setImportWarnings([]);
   };
 
   const openCreate = () => {
@@ -128,6 +139,7 @@ const Templates = () => {
       setCategory(draft.category || 'General Wellness');
       setInstructions(draft.instructions || '');
       setDays(draft.days || [{ ...DEFAULT_DAY, meals: DEFAULT_DAY.meals.map(m => ({ ...m })) }]);
+      setSupplements(draft.supplements || []);
     }
     setShowDraftDialog(false);
     setIsEditorOpen(true);
@@ -148,6 +160,7 @@ const Templates = () => {
     setCategory(t.category);
     setInstructions(t.instructions || '');
     setDays(t.template_data.length > 0 ? t.template_data : [{ ...DEFAULT_DAY, meals: DEFAULT_DAY.meals.map(m => ({ ...m })) }]);
+    setSupplements(t.supplements ?? []);
     setIsEditorOpen(true);
   };
 
@@ -163,7 +176,42 @@ const Templates = () => {
     setCategory(t.category);
     setInstructions(t.instructions || '');
     setDays(JSON.parse(JSON.stringify(t.template_data)));
+    setSupplements(JSON.parse(JSON.stringify(t.supplements ?? [])));
     setIsEditorOpen(true);
+  };
+
+  const handleImportFile = async (file: File) => {
+    setIsImporting(true);
+    setImportWarnings([]);
+    try {
+      const imported = await importTemplateFromFile(file);
+      setEditingTemplate(null);
+      setName(imported.name || 'Imported Template');
+      setDescription(imported.description || '');
+      setCategory(imported.category || 'General Wellness');
+      setInstructions(imported.instructions || '');
+      setDays(imported.days.length > 0 ? imported.days : [{ ...DEFAULT_DAY, meals: DEFAULT_DAY.meals.map(m => ({ ...m })) }]);
+      setSupplements(imported.supplements || []);
+      setImportWarnings(imported.warnings || []);
+      setIsEditorOpen(true);
+      toast.success('Diet chart imported — review and save it as a template.');
+    } catch (e) {
+      toast.error('Failed to import diet chart', { description: e instanceof Error ? e.message : undefined });
+    } finally {
+      setIsImporting(false);
+    }
+  };
+
+  const addSupplement = () => {
+    setSupplements(prev => [...prev, { ...DEFAULT_SUPPLEMENT }]);
+  };
+
+  const updateSupplement = (idx: number, field: keyof TemplateSupplement, value: string) => {
+    setSupplements(prev => prev.map((s, i) => i === idx ? { ...s, [field]: value } : s));
+  };
+
+  const removeSupplement = (idx: number) => {
+    setSupplements(prev => prev.filter((_, i) => i !== idx));
   };
 
   // Sync meal timings from first day to all other days
@@ -297,7 +345,7 @@ const Templates = () => {
 
   const handleSave = async () => {
     if (!name.trim()) return;
-    const payload = { name, description, category, template_data: days, instructions };
+    const payload = { name, description, category, template_data: days, supplements, instructions };
     if (editingTemplate) {
       await updateTemplate.mutateAsync({ id: editingTemplate.id, ...payload });
     } else {
@@ -353,6 +401,7 @@ const Templates = () => {
         setCategory(viewingTemplate!.category);
         setInstructions(viewingTemplate!.instructions || '');
         setDays(updated);
+        setSupplements(viewingTemplate!.supplements ?? []);
         setIsEditorOpen(true);
         setIsViewOpen(false);
       } else {
@@ -367,6 +416,7 @@ const Templates = () => {
           setCategory(viewingTemplate!.category);
           setInstructions(viewingTemplate!.instructions || '');
           setDays(updated);
+          setSupplements(viewingTemplate!.supplements ?? []);
           setIsEditorOpen(true);
           setIsViewOpen(false);
         }
@@ -509,10 +559,35 @@ const Templates = () => {
           <h1 className="text-2xl font-bold text-foreground">Diet Chart Templates</h1>
           <p className="text-sm text-muted-foreground mt-1">Create reusable diet chart templates to quickly assign to clients</p>
         </div>
-        <Button className="gradient-primary text-primary-foreground" onClick={openCreate}>
-          <Plus className="h-4 w-4 mr-2" />
-          New Template
-        </Button>
+        <div className="flex items-center gap-2">
+          <input
+            ref={importFileInputRef}
+            type="file"
+            accept="application/pdf,image/*"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              e.target.value = '';
+              if (file) handleImportFile(file);
+            }}
+          />
+          <Button
+            variant="outline"
+            onClick={() => importFileInputRef.current?.click()}
+            disabled={isImporting}
+          >
+            {isImporting ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <Upload className="h-4 w-4 mr-2" />
+            )}
+            {isImporting ? 'Importing…' : 'Import from PDF'}
+          </Button>
+          <Button className="gradient-primary text-primary-foreground" onClick={openCreate}>
+            <Plus className="h-4 w-4 mr-2" />
+            New Template
+          </Button>
+        </div>
       </div>
 
       {/* Search Filter */}
@@ -634,6 +709,12 @@ const Templates = () => {
             <div className="flex-1 overflow-y-auto p-6">
 
           <div className="space-y-6">
+            {importWarnings.length > 0 && (
+              <div className="rounded-md border border-warning/40 bg-warning/10 p-3 text-xs text-warning-foreground space-y-1">
+                <p className="font-semibold">Imported — please review before saving:</p>
+                {importWarnings.map((w, i) => <p key={i}>• {w}</p>)}
+              </div>
+            )}
             {/* Meta */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="space-y-2">
@@ -867,6 +948,54 @@ const Templates = () => {
                 </Button>
               </div>
             </div>
+
+            {/* Supplements */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h4 className="font-semibold text-primary text-sm flex items-center gap-1.5">
+                  <Pill className="h-4 w-4" /> Supplements
+                </h4>
+                <Button size="sm" variant="outline" className="h-6 px-2 text-xs" onClick={addSupplement}>
+                  <Plus className="h-3 w-3 mr-1" /> Add Supplement
+                </Button>
+              </div>
+              {supplements.length === 0 ? (
+                <p className="text-xs text-muted-foreground">No supplements added. Click "Add Supplement" if this plan includes one.</p>
+              ) : (
+                <div className="space-y-2">
+                  {supplements.map((s, idx) => (
+                    <div key={idx} className="grid grid-cols-1 sm:grid-cols-[120px_1fr_1fr_auto] gap-2 items-start">
+                      <Input
+                        value={s.time}
+                        onChange={e => updateSupplement(idx, 'time', e.target.value)}
+                        placeholder="Time (e.g. 9:30am)"
+                        className="text-sm"
+                      />
+                      <Input
+                        value={s.supplement}
+                        onChange={e => updateSupplement(idx, 'supplement', e.target.value)}
+                        placeholder="Supplement & dosage"
+                        className="text-sm"
+                      />
+                      <Input
+                        value={s.notes}
+                        onChange={e => updateSupplement(idx, 'notes', e.target.value)}
+                        placeholder="Notes (optional)"
+                        className="text-sm"
+                      />
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-9 w-9 text-destructive shrink-0"
+                        onClick={() => removeSupplement(idx)}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
 
             </div>
@@ -979,6 +1108,34 @@ const Templates = () => {
               </tbody>
             </table>
           </div>
+
+          {viewingTemplate?.supplements && viewingTemplate.supplements.length > 0 && (
+            <div className="mt-6 space-y-2">
+              <h4 className="font-semibold text-primary text-sm flex items-center gap-1.5">
+                <Pill className="h-4 w-4" /> Supplements
+              </h4>
+              <div className="border rounded-lg overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-muted/50">
+                      <th className="text-left p-2 font-semibold text-xs">Time</th>
+                      <th className="text-left p-2 font-semibold text-xs">Supplement</th>
+                      <th className="text-left p-2 font-semibold text-xs">Notes</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {viewingTemplate.supplements.map((s, i) => (
+                      <tr key={i} className={i % 2 === 0 ? 'bg-card' : 'bg-muted/30'}>
+                        <td className="p-2 whitespace-nowrap">{s.time || '-'}</td>
+                        <td className="p-2">{s.supplement || '-'}</td>
+                        <td className="p-2 text-muted-foreground">{s.notes || '-'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
 
             </div>
 

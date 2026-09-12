@@ -14,12 +14,19 @@ export interface TemplateDay {
   meals: TemplateMeal[];
 }
 
+export interface TemplateSupplement {
+  time: string;
+  supplement: string;
+  notes: string;
+}
+
 export interface DietChartTemplate {
   id: string;
   name: string;
   description: string | null;
   category: string;
   template_data: TemplateDay[];
+  supplements: TemplateSupplement[];
   instructions: string | null;
   created_at: string;
   updated_at: string;
@@ -38,9 +45,12 @@ export const useDietChartTemplates = () => {
       if (error) throw error;
       return (data as unknown as DietChartTemplate[]).map(t => ({
         ...t,
-        template_data: (typeof t.template_data === 'string' 
-          ? JSON.parse(t.template_data) 
+        template_data: (typeof t.template_data === 'string'
+          ? JSON.parse(t.template_data)
           : t.template_data) as TemplateDay[],
+        supplements: (typeof (t as any).supplements === 'string'
+          ? JSON.parse((t as any).supplements)
+          : (t as any).supplements ?? []) as TemplateSupplement[],
       }));
     },
   });
@@ -49,7 +59,7 @@ export const useDietChartTemplates = () => {
 export const useCreateTemplate = () => {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (template: { name: string; description?: string; category: string; template_data: TemplateDay[]; instructions?: string }) => {
+    mutationFn: async (template: { name: string; description?: string; category: string; template_data: TemplateDay[]; supplements?: TemplateSupplement[]; instructions?: string }) => {
       const { data, error } = await supabase
         .from('diet_chart_templates')
         .insert({
@@ -57,6 +67,7 @@ export const useCreateTemplate = () => {
           description: template.description || null,
           category: template.category,
           template_data: JSON.parse(JSON.stringify(template.template_data)),
+          supplements: JSON.parse(JSON.stringify(template.supplements ?? [])),
           instructions: template.instructions || null,
         } as any)
         .select()
@@ -75,7 +86,7 @@ export const useCreateTemplate = () => {
 export const useUpdateTemplate = () => {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id, ...template }: { id: string; name: string; description?: string; category: string; template_data: TemplateDay[]; instructions?: string }) => {
+    mutationFn: async ({ id, ...template }: { id: string; name: string; description?: string; category: string; template_data: TemplateDay[]; supplements?: TemplateSupplement[]; instructions?: string }) => {
       const { data, error } = await supabase
         .from('diet_chart_templates')
         .update({
@@ -83,6 +94,7 @@ export const useUpdateTemplate = () => {
           description: template.description || null,
           category: template.category,
           template_data: JSON.parse(JSON.stringify(template.template_data)),
+          supplements: JSON.parse(JSON.stringify(template.supplements ?? [])),
           instructions: template.instructions || null,
         } as any)
         .eq('id', id)

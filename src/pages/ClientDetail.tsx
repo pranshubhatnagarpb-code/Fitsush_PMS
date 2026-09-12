@@ -2,7 +2,9 @@ import { useState, type ReactNode } from 'react';
 import { LineChart, Line, Tooltip, ResponsiveContainer } from 'recharts';
 import { useParams, useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
-import { Home, ChevronRight, ArrowLeft, Pencil, Save, X } from 'lucide-react';
+import { Home, ChevronRight, ArrowLeft, Pencil, Save, X, Download, Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
+import { downloadProgressSummaryPdf } from '@/lib/progressSummaryPdf';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -17,7 +19,7 @@ import {
   type ProgressEntry,
 } from '@/hooks/useClientDetail';
 import { useUpdateClient } from '@/hooks/useClients';
-import { ClientMeasurementsPanel } from '@/components/clients/ClientMeasurementsPanel';
+import { ClientBodyMeasurementsPanel } from '@/components/body-measurements/ClientBodyMeasurementsPanel';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -984,6 +986,19 @@ const ClientDetail = () => {
   const { data: client, isLoading } = useClientById(id);
   const { data: intakeSubmissions = [] } = useClientIntakeSubmissions(id);
   const { data: progressEntries = [] } = useClientProgressEntries(id);
+  const [isDownloadingSummary, setIsDownloadingSummary] = useState(false);
+
+  const handleDownloadProgressSummary = async () => {
+    if (!id) return;
+    setIsDownloadingSummary(true);
+    try {
+      await downloadProgressSummaryPdf(id);
+    } catch (e) {
+      toast.error('Failed to generate progress summary', { description: e instanceof Error ? e.message : undefined });
+    } finally {
+      setIsDownloadingSummary(false);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -1012,18 +1027,24 @@ const ClientDetail = () => {
         <span className="text-foreground font-medium">{client.name}</span>
       </div>
 
-      <div className="mb-6 flex items-center gap-3">
-        <Button variant="ghost" size="icon" onClick={() => navigate('/clients')}>
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">{client.name}</h1>
-          <div className="flex items-center gap-2 mt-0.5">
-            <Badge variant={client.is_active ? 'default' : 'secondary'}>{client.is_active ? 'Active' : 'Inactive'}</Badge>
-            {client.portal_access_enabled && <Badge variant="outline">Portal enabled</Badge>}
-            {client.gender && <span className="text-xs text-muted-foreground capitalize">{client.gender}</span>}
+      <div className="mb-6 flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="icon" onClick={() => navigate('/clients')}>
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <div>
+            <h1 className="text-2xl font-bold text-foreground">{client.name}</h1>
+            <div className="flex items-center gap-2 mt-0.5">
+              <Badge variant={client.is_active ? 'default' : 'secondary'}>{client.is_active ? 'Active' : 'Inactive'}</Badge>
+              {client.portal_access_enabled && <Badge variant="outline">Portal enabled</Badge>}
+              {client.gender && <span className="text-xs text-muted-foreground capitalize">{client.gender}</span>}
+            </div>
           </div>
         </div>
+        <Button variant="outline" onClick={handleDownloadProgressSummary} disabled={isDownloadingSummary}>
+          {isDownloadingSummary ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Download className="h-4 w-4 mr-2" />}
+          {isDownloadingSummary ? 'Generating…' : 'Download Progress Summary'}
+        </Button>
       </div>
 
       <Tabs defaultValue="profile">
@@ -1080,7 +1101,7 @@ const ClientDetail = () => {
         </TabsContent>
 
         <TabsContent value="measurements">
-          <ClientMeasurementsPanel clientId={id!} clientName={client?.name ?? ''} heightCm={client?.height ?? null} />
+          <ClientBodyMeasurementsPanel clientId={id!} clientName={client?.name ?? ''} />
         </TabsContent>
       </Tabs>
     </DashboardLayout>

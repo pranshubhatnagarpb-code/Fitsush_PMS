@@ -20,7 +20,6 @@ import AffiliateProductsImport from "./pages/AffiliateProductsImport";
 import Appointments from "./pages/Appointments";
 import BodyMeasurements from "./pages/BodyMeasurements";
 import BloodReports from "./pages/BloodReports";
-import Measurements from "./pages/Measurements";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -49,7 +48,6 @@ const App = () => (
             <Route path="/recipes" element={<ProtectedRoute><Recipes /></ProtectedRoute>} />
             <Route path="/meal-recipes-import" element={<ProtectedRoute><MealRecipesImport /></ProtectedRoute>} />
             <Route path="/affiliate-products" element={<ProtectedRoute><AffiliateProductsImport /></ProtectedRoute>} />
-            <Route path="/measurements" element={<ProtectedRoute><Measurements /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

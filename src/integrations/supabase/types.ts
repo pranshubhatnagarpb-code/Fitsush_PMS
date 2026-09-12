@@ -442,6 +442,7 @@ export type Database = {
           id: string
           instructions: string | null
           name: string
+          supplements: Json
           template_data: Json
           updated_at: string
         }
@@ -452,6 +453,7 @@ export type Database = {
           id?: string
           instructions?: string | null
           name: string
+          supplements?: Json
           template_data?: Json
           updated_at?: string
         }
@@ -462,6 +464,7 @@ export type Database = {
           id?: string
           instructions?: string | null
           name?: string
+          supplements?: Json
           template_data?: Json
           updated_at?: string
         }
