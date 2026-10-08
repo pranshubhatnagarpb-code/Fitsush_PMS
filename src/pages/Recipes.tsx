@@ -10,10 +10,19 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { ChefHat, Clock, Users, Flame, Search, Loader2, Lightbulb, UtensilsCrossed, Download, Pencil, Check, Plus, Trash2 } from "lucide-react";
+import { ChefHat, Clock, Users, Flame, Search, Loader2, Lightbulb, UtensilsCrossed, Download, Pencil, Check, Plus, Trash2, Activity } from "lucide-react";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
+
+interface NutritionInfo {
+  calories: string;
+  protein: string;
+  carbs: string;
+  fat: string;
+  fiber: string;
+}
 
 interface Recipe {
   dishName: string;
@@ -28,6 +37,7 @@ interface Recipe {
   nutritionTips: string;
   variations: string[];
   servingSuggestions: string;
+  nutritionInfo?: NutritionInfo;
 }
 
 const SERVING_OPTIONS = ["1", "2", "3", "4", "6", "8", "10"];
@@ -36,6 +46,7 @@ const Recipes = () => {
   const [dishName, setDishName] = useState("");
   const [servings, setServings] = useState("4");
   const [additionalInstructions, setAdditionalInstructions] = useState("");
+  const [includeNutrition, setIncludeNutrition] = useState(true);
   const [recipe, setRecipe] = useState<Recipe | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -56,6 +67,7 @@ const Recipes = () => {
           dishName: dishName.trim(),
           servings,
           additionalInstructions: additionalInstructions.trim(),
+          includeNutrition,
         },
       });
 
@@ -112,6 +124,10 @@ const Recipes = () => {
 
   const removeInstruction = (index: number) => {
     setRecipe((prev) => (prev ? { ...prev, instructions: prev.instructions.filter((_, i) => i !== index) } : prev));
+  };
+
+  const updateNutritionField = (key: keyof NutritionInfo, value: string) => {
+    setRecipe((prev) => (prev && prev.nutritionInfo ? { ...prev, nutritionInfo: { ...prev.nutritionInfo, [key]: value } } : prev));
   };
 
   const updateVariation = (index: number, value: string) => {
@@ -264,6 +280,13 @@ const Recipes = () => {
                 onChange={(e) => setAdditionalInstructions(e.target.value)}
                 rows={2}
               />
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Switch id="include-nutrition" checked={includeNutrition} onCheckedChange={setIncludeNutrition} />
+              <Label htmlFor="include-nutrition" className="text-sm text-muted-foreground cursor-pointer">
+                Include nutritional breakdown (protein, carbs, fat, fiber per serving)
+              </Label>
             </div>
           </CardContent>
         </Card>
@@ -473,6 +496,42 @@ const Recipes = () => {
                 </CardContent>
               </Card>
             </div>
+
+            {/* Nutrition Facts */}
+            {recipe.nutritionInfo && (
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Activity className="h-4 w-4 text-primary" />
+                    Nutrition Facts (per serving)
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
+                    {([
+                      ["calories", "Calories"],
+                      ["protein", "Protein"],
+                      ["carbs", "Carbs"],
+                      ["fat", "Fat"],
+                      ["fiber", "Fiber"],
+                    ] as [keyof NutritionInfo, string][]).map(([key, label]) => (
+                      <div key={key} className="space-y-1">
+                        <p className="text-xs text-muted-foreground uppercase tracking-wide">{label}</p>
+                        {isEditing ? (
+                          <Input
+                            value={recipe.nutritionInfo?.[key] ?? ""}
+                            onChange={(e) => updateNutritionField(key, e.target.value)}
+                            className="h-8"
+                          />
+                        ) : (
+                          <p className="text-sm font-semibold text-foreground">{recipe.nutritionInfo?.[key] || "-"}</p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
             {/* Nutrition & Tips */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

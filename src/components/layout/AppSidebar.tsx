@@ -11,6 +11,8 @@ import {
   CalendarDays,
   Database,
   ShoppingBag,
+  Receipt,
+  Table2,
   LogOut,
   Menu,
   X,
@@ -35,6 +37,8 @@ const navGroups = [
       { title: 'Appointments', icon: CalendarDays, path: '/appointments' },
       { title: 'Blood Reports', icon: FlaskConical, path: '/blood-reports' },
       { title: 'Body Measurements', icon: Ruler, path: '/body-measurements' },
+      { title: 'Billing', icon: Receipt, path: '/bills' },
+      { title: 'Excel View', icon: Table2, path: '/excel-view' },
     ],
   },
   {

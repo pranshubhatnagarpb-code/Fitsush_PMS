@@ -31,11 +31,11 @@ interface TemplateMealTimeRow {
   };
 }
 
-const CATEGORIES = ['Weight Loss', 'PCOD/PCOS', 'Diabetes', 'Thyroid', 'Muscle Gain', 'General Wellness', 'Pregnancy', 'Post Surgery'];
+const CATEGORIES = ['Weight Loss', 'PCOD/PCOS', 'Diabetes', 'Thyroid', 'Muscle Gain', 'General Wellness', 'Pregnancy', 'Postpartum', 'Fertility', 'Fatty Liver', 'High Uric Acid', 'Post Surgery'];
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 const DEFAULT_MEAL: TemplateMeal = { time: '', meal: '', alternatives: '', notes: '' };
 const DEFAULT_DAY: TemplateDay = {
-  day: 'Monday',
+  day: 'Daily Plan',
   meals: [
     { time: '7:00 AM', meal: '', alternatives: '', notes: '' },
     { time: '10:00 AM', meal: '', alternatives: '', notes: '' },
@@ -738,7 +738,7 @@ const Templates = () => {
 
             <div className="space-y-2">
               <Label>General Instructions</Label>
-              <Textarea value={instructions} onChange={e => setInstructions(e.target.value)} placeholder="e.g., Drink 8 glasses of water daily, avoid fried food..." rows={2} />
+              <Textarea value={instructions} onChange={e => setInstructions(e.target.value)} placeholder="e.g., Drink 8 glasses of water daily, avoid fried food..." rows={8} />
             </div>
 
             {/* Tabular Template Layout */}
@@ -1041,7 +1041,7 @@ const Templates = () => {
           {viewingTemplate?.instructions && (
             <div className="p-3 rounded-md bg-accent/50">
               <p className="text-sm font-medium text-accent-foreground">Instructions:</p>
-              <p className="text-sm text-muted-foreground">{viewingTemplate.instructions}</p>
+              <p className="text-sm text-muted-foreground whitespace-pre-wrap">{viewingTemplate.instructions}</p>
             </div>
           )}
 

@@ -12,7 +12,7 @@ serve(async (req) => {
   }
 
   try {
-    const { dishName } = await req.json();
+    const { dishName, servings, additionalInstructions, includeNutrition } = await req.json();
 
     if (!dishName || typeof dishName !== "string" || dishName.trim().length === 0) {
       return new Response(
@@ -25,6 +25,8 @@ serve(async (req) => {
     if (!OPENAI_API_KEY) {
       throw new Error("OPENAI_API_KEY is not configured");
     }
+
+    const wantsNutrition = includeNutrition !== false;
 
     const systemPrompt = `You are an expert Indian chef and nutritionist. When given a dish name, provide a detailed recipe in JSON format.
 
@@ -44,21 +46,32 @@ Your response must be a valid JSON object with exactly this structure:
     "Step 1 description",
     "Step 2 description"
   ],
-  "tips": ["Helpful cooking tip 1", "Tip 2"],
+  "nutritionTips": "1-2 sentences of general nutrition/health guidance about this dish (not the macro breakdown).",
+  "variations": ["A healthier or alternative version of this dish", "Another variation"],
+  "servingSuggestions": "1-2 sentences on what to pair/serve this dish with."${wantsNutrition ? `,
   "nutritionInfo": {
+    "calories": "Approximate calories per serving, e.g. 320 kcal",
     "protein": "e.g. 12g",
     "carbs": "e.g. 45g",
     "fat": "e.g. 8g",
     "fiber": "e.g. 3g"
-  }
+  }` : ""}
 }
 
 Focus on:
 - Authentic Indian recipes when the dish is Indian, otherwise provide the authentic recipe for that cuisine
-- Exact quantities and measurements
+- Exact quantities and measurements, scaled to the requested number of servings
 - Clear step-by-step instructions
-- Practical tips for best results
-- Accurate nutrition estimates`;
+- Practical tips for best results${wantsNutrition ? `
+- Accurate per-serving nutrition estimates (calories, protein, carbs, fat, fiber) based on the actual ingredients and quantities used` : `
+- Do NOT include a "nutritionInfo" field in the response at all — nutrition breakdown was not requested for this recipe`}
+- Follow any additional instructions from the nutritionist exactly (dietary restrictions, calorie targets, ingredient exclusions, etc.)`;
+
+    const userPromptParts = [`Give me a detailed recipe for: ${dishName.trim()}`];
+    if (servings) userPromptParts.push(`Scale the recipe for ${servings} serving(s).`);
+    if (additionalInstructions && String(additionalInstructions).trim()) {
+      userPromptParts.push(`Additional instructions: ${String(additionalInstructions).trim()}`);
+    }
 
     const openai = new OpenAI({ apiKey: OPENAI_API_KEY });
 
@@ -67,7 +80,7 @@ Focus on:
       response_format: { type: "json_object" },
       messages: [
         { role: "system", content: systemPrompt },
-        { role: "user", content: `Give me a detailed recipe for: ${dishName.trim()}` },
+        { role: "user", content: userPromptParts.join("\n") },
       ],
       temperature: 0.7,
     });

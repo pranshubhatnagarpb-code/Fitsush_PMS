@@ -125,21 +125,35 @@ CRITICAL RULES:
     option in "meal" and join the REMAINING options into "alternatives"
     separated by " | " (do not repeat the word "Or"). If there is only one
     option, put it in "meal" and leave "alternatives" as an empty string.
+  - If a fixed side item is appended with "+" AFTER the full list of "Or"
+    options (e.g. a tea or drink that goes with whichever main option is
+    picked — "...Or quinoa appe\n+\nTea: elderberry tea"), that shared item
+    applies to every option in the row. Put it in "notes" (e.g. "Have with:
+    elderberry tea"), not appended to the last alternative's text.
   - "notes": anything else tied to that specific row only (e.g. an "Amount of
-    oil" column value like "1 teaspoon coconut oil/butter/ghee"). Empty
-    string if none.
+    oil" column value like "1 teaspoon coconut oil/butter/ghee", or a shared
+    side item as above — join multiple with "; "). Empty string if none.
 - "instructions": combine the chart's general guidance that applies to the
   whole plan — daily calorie/macro target if given, "Mandatory" items (water
   intake, workout frequency, sleep), "Not allowed" foods, and any other
   standing notes NOT tied to one specific meal row — into one readable block
   of text (use line breaks between points). Do not include this in "notes".
 - "supplements": extract every line from a "For Supplements" (or similarly
-  named) section. One entry per line:
+  named) section.
   - "time": the time exactly as printed (e.g. "9:30am").
-  - "supplement": the supplement name(s) and dosage exactly as written (e.g.
-    "Myo Inositol : D Chiro Inositol 40:1 + Berberine 500mg").
-  - "notes": any parenthetical caveat or duration (e.g. "for one more month",
-    "once a month"). Empty string if none.
+  - A line may combine more than one supplement at the same time, joined by
+    "+" (e.g. "berberine 500mg (for one month) + b12 1500mg (for 2 months)").
+    If EACH item in the line has its OWN distinct duration/caveat written
+    right after it, split the line into a SEPARATE entry per item — all
+    sharing that same "time" — each with its own "supplement" name+dosage and
+    its own "notes". Only keep multiple items combined into one entry
+    (supplement name+dosage joined with " + ") when the line gives a single
+    shared duration/caveat for the whole combination, or gives none at all
+    (e.g. "Myo Inositol : D Chiro Inositol 40:1 + Berberine 500mg" with one
+    trailing note, or "iron bisglycinate 30mg + vitamin C 1000mg (for 2
+    months then check levels)" — one shared caveat for both).
+  - "notes": the duration/caveat parenthetical for that entry (e.g. "for one
+    month", "once a month"). Empty string if none.
   - If there is no supplements section at all, return an empty array.
 - Add a short string to "warnings" for anything you could not parse cleanly
   or had to guess at.

@@ -58,6 +58,304 @@ export type Database = {
           },
         ]
       }
+      blood_reports: {
+        Row: {
+          client_id: string
+          created_at: string
+          id: string
+          lab_name: string | null
+          notes: string | null
+          report_date: string
+          source_file_name: string | null
+          updated_at: string
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          id?: string
+          lab_name?: string | null
+          notes?: string | null
+          report_date: string
+          source_file_name?: string | null
+          updated_at?: string
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          id?: string
+          lab_name?: string | null
+          notes?: string | null
+          report_date?: string
+          source_file_name?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "blood_reports_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      blood_report_values: {
+        Row: {
+          albumin: number | null
+          alp: number | null
+          anti_tg: number | null
+          anti_tpo: number | null
+          basophils: number | null
+          bilirubin: number | null
+          c_peptide: number | null
+          calcium: number | null
+          chloride: number | null
+          cortisol: number | null
+          created_at: string
+          creatinine: number | null
+          d_dimer: number | null
+          dheas: number | null
+          eosinophils: number | null
+          esr: number | null
+          estrogen: number | null
+          fasting_blood_sugar: number | null
+          ferritin: number | null
+          fibrinogen: number | null
+          free_t3: number | null
+          free_t4: number | null
+          fsh: number | null
+          ggt: number | null
+          globulin: number | null
+          hba1c: number | null
+          hdl: number | null
+          hematocrit: number | null
+          hemoglobin: number | null
+          homo_ir: number | null
+          homocysteine: number | null
+          hs_crp: number | null
+          id: string
+          il6: number | null
+          insulin_fasting: number | null
+          insulin_post_prandial: number | null
+          iron: number | null
+          iron_saturation: number | null
+          ldh: number | null
+          ldl: number | null
+          lh: number | null
+          lymphocytes: number | null
+          magnesium: number | null
+          mch: number | null
+          mchc: number | null
+          mcv: number | null
+          monocytes: number | null
+          neutrophils: number | null
+          notes: string | null
+          osmolarity: number | null
+          phosphorus: number | null
+          platelets: number | null
+          postprandial_blood_sugar: number | null
+          potassium: number | null
+          progesterone: number | null
+          prolactin: number | null
+          prothrombin_time: number | null
+          ptt: number | null
+          rbc: number | null
+          rdw: number | null
+          report_id: string
+          selenium: number | null
+          sgot: number | null
+          sgpt: number | null
+          sodium: number | null
+          t3: number | null
+          t4: number | null
+          testosterone: number | null
+          tibc: number | null
+          total_cholesterol: number | null
+          total_protein: number | null
+          triglycerides: number | null
+          tsh: number | null
+          updated_at: string
+          urea: number | null
+          uric_acid: number | null
+          vitamin_b12: number | null
+          vitamin_d: number | null
+          vldl: number | null
+          wbc: number | null
+        }
+        Insert: {
+          albumin?: number | null
+          alp?: number | null
+          anti_tg?: number | null
+          anti_tpo?: number | null
+          basophils?: number | null
+          bilirubin?: number | null
+          c_peptide?: number | null
+          calcium?: number | null
+          chloride?: number | null
+          cortisol?: number | null
+          created_at?: string
+          creatinine?: number | null
+          d_dimer?: number | null
+          dheas?: number | null
+          eosinophils?: number | null
+          esr?: number | null
+          estrogen?: number | null
+          fasting_blood_sugar?: number | null
+          ferritin?: number | null
+          fibrinogen?: number | null
+          free_t3?: number | null
+          free_t4?: number | null
+          fsh?: number | null
+          ggt?: number | null
+          globulin?: number | null
+          hba1c?: number | null
+          hdl?: number | null
+          hematocrit?: number | null
+          hemoglobin?: number | null
+          homo_ir?: number | null
+          homocysteine?: number | null
+          hs_crp?: number | null
+          id?: string
+          il6?: number | null
+          insulin_fasting?: number | null
+          insulin_post_prandial?: number | null
+          iron?: number | null
+          iron_saturation?: number | null
+          ldh?: number | null
+          ldl?: number | null
+          lh?: number | null
+          lymphocytes?: number | null
+          magnesium?: number | null
+          mch?: number | null
+          mchc?: number | null
+          mcv?: number | null
+          monocytes?: number | null
+          neutrophils?: number | null
+          notes?: string | null
+          osmolarity?: number | null
+          phosphorus?: number | null
+          platelets?: number | null
+          postprandial_blood_sugar?: number | null
+          potassium?: number | null
+          progesterone?: number | null
+          prolactin?: number | null
+          prothrombin_time?: number | null
+          ptt?: number | null
+          rbc?: number | null
+          rdw?: number | null
+          report_id: string
+          selenium?: number | null
+          sgot?: number | null
+          sgpt?: number | null
+          sodium?: number | null
+          t3?: number | null
+          t4?: number | null
+          testosterone?: number | null
+          tibc?: number | null
+          total_cholesterol?: number | null
+          total_protein?: number | null
+          triglycerides?: number | null
+          tsh?: number | null
+          updated_at?: string
+          urea?: number | null
+          uric_acid?: number | null
+          vitamin_b12?: number | null
+          vitamin_d?: number | null
+          vldl?: number | null
+          wbc?: number | null
+        }
+        Update: {
+          albumin?: number | null
+          alp?: number | null
+          anti_tg?: number | null
+          anti_tpo?: number | null
+          basophils?: number | null
+          bilirubin?: number | null
+          c_peptide?: number | null
+          calcium?: number | null
+          chloride?: number | null
+          cortisol?: number | null
+          created_at?: string
+          creatinine?: number | null
+          d_dimer?: number | null
+          dheas?: number | null
+          eosinophils?: number | null
+          esr?: number | null
+          estrogen?: number | null
+          fasting_blood_sugar?: number | null
+          ferritin?: number | null
+          fibrinogen?: number | null
+          free_t3?: number | null
+          free_t4?: number | null
+          fsh?: number | null
+          ggt?: number | null
+          globulin?: number | null
+          hba1c?: number | null
+          hdl?: number | null
+          hematocrit?: number | null
+          hemoglobin?: number | null
+          homo_ir?: number | null
+          homocysteine?: number | null
+          hs_crp?: number | null
+          id?: string
+          il6?: number | null
+          insulin_fasting?: number | null
+          insulin_post_prandial?: number | null
+          iron?: number | null
+          iron_saturation?: number | null
+          ldh?: number | null
+          ldl?: number | null
+          lh?: number | null
+          lymphocytes?: number | null
+          magnesium?: number | null
+          mch?: number | null
+          mchc?: number | null
+          mcv?: number | null
+          monocytes?: number | null
+          neutrophils?: number | null
+          notes?: string | null
+          osmolarity?: number | null
+          phosphorus?: number | null
+          platelets?: number | null
+          postprandial_blood_sugar?: number | null
+          potassium?: number | null
+          progesterone?: number | null
+          prolactin?: number | null
+          prothrombin_time?: number | null
+          ptt?: number | null
+          rbc?: number | null
+          rdw?: number | null
+          report_id?: string
+          selenium?: number | null
+          sgot?: number | null
+          sgpt?: number | null
+          sodium?: number | null
+          t3?: number | null
+          t4?: number | null
+          testosterone?: number | null
+          tibc?: number | null
+          total_cholesterol?: number | null
+          total_protein?: number | null
+          triglycerides?: number | null
+          tsh?: number | null
+          updated_at?: string
+          urea?: number | null
+          uric_acid?: number | null
+          vitamin_b12?: number | null
+          vitamin_d?: number | null
+          vldl?: number | null
+          wbc?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "blood_report_values_report_id_fkey"
+            columns: ["report_id"]
+            isOneToOne: false
+            referencedRelation: "blood_reports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       client_blood_reports: {
         Row: {
           client_id: string
@@ -292,6 +590,44 @@ export type Database = {
           },
         ]
       }
+      client_notes: {
+        Row: {
+          client_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          note_date: string
+          note_text: string
+          updated_at: string
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          note_date?: string
+          note_text: string
+          updated_at?: string
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          note_date?: string
+          note_text?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_notes_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       client_portal_users: {
         Row: {
           client_id: string
@@ -326,6 +662,84 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      client_tracker: {
+        Row: {
+          before_after: string | null
+          collab: string | null
+          created_at: string
+          diet_plan: string | null
+          drop_outs: string | null
+          ending_date: string | null
+          entry_date: string | null
+          fixed_appointments: string | null
+          id: string
+          leads: string | null
+          missed_recalls: string | null
+          month: string
+          name: string | null
+          next_session: string | null
+          other: string | null
+          non_converted: string | null
+          payment: string | null
+          pending_appointments: string | null
+          pending_payments: string | null
+          reference: string | null
+          review: string | null
+          starting_date: string | null
+          updated_at: string
+        }
+        Insert: {
+          before_after?: string | null
+          collab?: string | null
+          created_at?: string
+          diet_plan?: string | null
+          drop_outs?: string | null
+          ending_date?: string | null
+          entry_date?: string | null
+          fixed_appointments?: string | null
+          id?: string
+          leads?: string | null
+          missed_recalls?: string | null
+          month?: string
+          name?: string | null
+          next_session?: string | null
+          other?: string | null
+          non_converted?: string | null
+          payment?: string | null
+          pending_appointments?: string | null
+          pending_payments?: string | null
+          reference?: string | null
+          review?: string | null
+          starting_date?: string | null
+          updated_at?: string
+        }
+        Update: {
+          before_after?: string | null
+          collab?: string | null
+          created_at?: string
+          diet_plan?: string | null
+          drop_outs?: string | null
+          ending_date?: string | null
+          entry_date?: string | null
+          fixed_appointments?: string | null
+          id?: string
+          leads?: string | null
+          missed_recalls?: string | null
+          month?: string
+          name?: string | null
+          next_session?: string | null
+          other?: string | null
+          non_converted?: string | null
+          payment?: string | null
+          pending_appointments?: string | null
+          pending_payments?: string | null
+          reference?: string | null
+          review?: string | null
+          starting_date?: string | null
+          updated_at?: string
+        }
+        Relationships: []
       }
       clients: {
         Row: {

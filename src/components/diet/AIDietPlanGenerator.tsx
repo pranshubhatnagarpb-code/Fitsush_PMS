@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Sparkles, Download, Loader2, Pencil, Check, X, CheckCircle2, Plus, Trash2, Save, CalendarIcon, BookTemplate, RefreshCw, Copy, Calendar as CalendarDays, Hash, Clock } from 'lucide-react';
@@ -18,6 +19,13 @@ import { Client } from '@/hooks/useClients';
 import { useDietChartTemplates, useCreateTemplate, type DietChartTemplate, type TemplateDay, type TemplateMeal } from '@/hooks/useDietChartTemplates';
 import { format, addDays, startOfWeek } from 'date-fns';
 
+interface MealNutrition {
+  calories?: string;
+  protein?: string;
+  carbs?: string;
+  fat?: string;
+}
+
 interface MealItem {
   period: string;
   time: string;
@@ -25,6 +33,7 @@ interface MealItem {
   alternative: string;
   notes: string;
   isManuallyAdded?: boolean; // Track if this row was manually added
+  nutrition?: MealNutrition;
 }
 
 interface DayGroup {
@@ -32,6 +41,7 @@ interface DayGroup {
   dates?: string;
   editable?: boolean;
   meals: MealItem[];
+  dailyTotals?: MealNutrition;
 }
 
 interface OilGuidelines {
@@ -93,6 +103,7 @@ export const AIDietPlanGenerator = ({ clients, editModeData, onClose }: Props) =
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [customPrompt, setCustomPrompt] = useState('');
   const [numberOfDays, setNumberOfDays] = useState('7');
+  const [includeNutrition, setIncludeNutrition] = useState(false);
   
   // Debug wrapper for setNumberOfDays to track all calls
   const debugSetNumberOfDays = (value: string) => {
@@ -705,6 +716,7 @@ export const AIDietPlanGenerator = ({ clients, editModeData, onClose }: Props) =
           customPrompt: customPrompt.trim() || undefined,
           numberOfDays: parseInt(numberOfDays),
           startDate: startDateString,
+          includeNutrition,
         },
       });
 
@@ -741,14 +753,18 @@ export const AIDietPlanGenerator = ({ clients, editModeData, onClose }: Props) =
   const convertTemplateToDietPlan = (template: DietChartTemplate): DietPlan => {
     const dayGroups = template.template_data.map((templateDay, index) => {
       // Convert template meals to diet plan meals
-      const meals: MealItem[] = templateDay.meals.map((templateMeal: TemplateMeal) => ({
-        period: templateMeal.time || '',
-        time: templateMeal.time || '',
+      const meals: MealItem[] = templateDay.meals.map((templateMeal: TemplateMeal) => {
+        const slot = (templateMeal.time || '').trim();
+        const match = slot.match(/^(.+?)\s*\((.+?)\)$/);
+        return {
+        period: match ? match[1] : slot,
+        time: match ? match[2] : '',
         foodPlan: templateMeal.meal || '',
         alternative: templateMeal.alternatives || '',
         notes: templateMeal.notes || '',
         isManuallyAdded: false
-      }));
+        };
+      });
 
       return {
         label: templateDay.day,
@@ -769,12 +785,14 @@ export const AIDietPlanGenerator = ({ clients, editModeData, onClose }: Props) =
         deepFrying: [],
         note: ''
       },
-      importantNotes: [],
+      importantNotes: (template.instructions || '').split('\n').map(note => note.replace(/^\s*[•\-*]\s*/, '').trim()).filter(Boolean),
       disclaimer: '',
       skinCareTips: '',
       hairCareTips: '',
       healthNotes: '',
-      supplements: '',
+      supplements: (template.supplements || [])
+        .map(s => [s.time, s.supplement, s.notes].filter(Boolean).join(' — '))
+        .join('\n'),
       weeklyGroceryList: []
     };
   };
@@ -1315,7 +1333,7 @@ export const AIDietPlanGenerator = ({ clients, editModeData, onClose }: Props) =
   const startEditMealTime = (mealTimeIdx: number) => {
     const meal = generatedPlan?.dayGroups[0]?.meals[mealTimeIdx];
     if (meal) {
-      setMealTimeEditValue(`${meal.period} (${meal.time})`);
+      setMealTimeEditValue(getMealTimeDisplay(meal.period, meal.time));
       setEditingMealTime(mealTimeIdx);
     }
   };
@@ -1444,7 +1462,7 @@ export const AIDietPlanGenerator = ({ clients, editModeData, onClose }: Props) =
   };
 
   const getMealTimeDisplay = (period: string, time: string): string => {
-    return `${period} (${time})`;
+    return time ? `${period} (${time})` : period;
   };
 
   // Normalize to space-separated lowercase words (strips quotes and other punctuation)
@@ -1618,16 +1636,28 @@ export const AIDietPlanGenerator = ({ clients, editModeData, onClose }: Props) =
         }
       : generatedPlan;
 
+    const planHasNutrition = effectivePlan.dayGroups.some(g => g.meals.some(m => m.nutrition));
+    const formatNutrition = (n?: MealNutrition) => {
+      if (!n) return '-';
+      return [
+        n.calories ? `🔥 ${n.calories}` : '',
+        n.protein ? `P ${n.protein}` : '',
+        n.carbs ? `C ${n.carbs}` : '',
+        n.fat ? `F ${n.fat}` : '',
+      ].filter(Boolean).join(' · ') || '-';
+    };
+
     const dayGroupTables = effectivePlan.dayGroups.map(group => `
-      <h3 style="font-size: 14px; color: #FF4D06; font-weight: 700; margin: 18px 0 8px; padding-bottom: 4px; border-bottom: 1px solid #FED7AA;">${group.label}${group.dates ? ` <span style="font-size: 12px; color: #666; font-weight: normal;">(${group.dates})</span>` : ''}</h3>
+      <h3 style="font-size: 14px; color: #FF4D06; font-weight: 700; margin: 18px 0 8px; padding-bottom: 4px; border-bottom: 1px solid #FED7AA;">${group.label}${group.dates ? ` <span style="font-size: 12px; color: #666; font-weight: normal;">(${group.dates})</span>` : ''}${group.dailyTotals ? ` <span style="font-size: 11px; color: #888; font-weight: normal;">— Day total: ${escapeHtml(formatNutrition(group.dailyTotals))}</span>` : ''}</h3>
       <table>
         <thead>
           <tr>
-            <th style="width: 13%;">Period</th>
-            <th style="width: 8%;">Time</th>
-            <th style="width: 34%;">Food Plan</th>
-            <th style="width: 30%;">Alternative</th>
-            <th style="width: 15%;">Notes</th>
+            <th style="width: ${planHasNutrition ? '11%' : '13%'};">Period</th>
+            <th style="width: ${planHasNutrition ? '7%' : '8%'};">Time</th>
+            <th style="width: ${planHasNutrition ? '28%' : '34%'};">Food Plan</th>
+            <th style="width: ${planHasNutrition ? '25%' : '30%'};">Alternative</th>
+            <th style="width: ${planHasNutrition ? '12%' : '15%'};">Notes</th>
+            ${planHasNutrition ? '<th style="width: 17%;">Nutrition</th>' : ''}
           </tr>
         </thead>
         <tbody>
@@ -1638,11 +1668,14 @@ export const AIDietPlanGenerator = ({ clients, editModeData, onClose }: Props) =
               <td class="food-cell">${escapeHtml(meal.foodPlan)}</td>
               <td class="food-cell" style="color: #666; font-style: italic;">${escapeHtml(meal.alternative || '-')}</td>
               <td class="notes-cell">${escapeHtml(meal.notes)}</td>
+              ${planHasNutrition ? `<td class="notes-cell">${escapeHtml(formatNutrition(meal.nutrition))}</td>` : ''}
             </tr>
           `).join('')}
         </tbody>
       </table>
     `).join('');
+
+    const pdfHeading = escapeHtml(`${generatedPlan.planName} - ${clientDetails.name}`);
 
     const content = `<!DOCTYPE html>
 <html>
@@ -2277,6 +2310,14 @@ export const AIDietPlanGenerator = ({ clients, editModeData, onClose }: Props) =
             </div>
           )}
 
+          {/* Nutritional Values Toggle */}
+          <div className="flex items-center gap-2">
+            <Switch id="include-nutrition" checked={includeNutrition} onCheckedChange={setIncludeNutrition} />
+            <Label htmlFor="include-nutrition" className="text-sm text-muted-foreground cursor-pointer">
+              Include nutritional values (estimated calories & macros per meal, plus daily totals per day-group)
+            </Label>
+          </div>
+
           {/* Supplements Section */}
           <div className="space-y-2">
             <Label>Supplements (Optional)</Label>
@@ -2658,6 +2699,14 @@ export const AIDietPlanGenerator = ({ clients, editModeData, onClose }: Props) =
                         <th key={dayIdx} className="text-left p-2 font-semibold text-xs min-w-[150px]">
                           <div className="space-y-1">
                             <div>{group.label}</div>
+                            {group.dailyTotals && (
+                              <div className="text-[10px] font-normal text-warning-foreground/80">
+                                {group.dailyTotals.calories && `🔥 ${group.dailyTotals.calories}`}
+                                {group.dailyTotals.protein && ` · P ${group.dailyTotals.protein}`}
+                                {group.dailyTotals.carbs && ` · C ${group.dailyTotals.carbs}`}
+                                {group.dailyTotals.fat && ` · F ${group.dailyTotals.fat}`}
+                              </div>
+                            )}
                             {generatedPlan.dayGroups.length > 1 && (
                               <Button 
                                 size="sm" 
@@ -2956,7 +3005,7 @@ export const AIDietPlanGenerator = ({ clients, editModeData, onClose }: Props) =
                               >
                                 {(() => {
                                   const meal = generatedPlan.dayGroups[0]?.meals[mealTimeIdx];
-                                  return meal ? `${meal.period} (${meal.time})` : '';
+                                  return meal ? getMealTimeDisplay(meal.period, meal.time) : '';
                                 })()}
                                 <Pencil className="h-2.5 w-2.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
                               </div>
@@ -3037,6 +3086,15 @@ export const AIDietPlanGenerator = ({ clients, editModeData, onClose }: Props) =
                                       onClick={() => startEditCell(mealTimeIdx, dayIdx, 'notes')}
                                     >
                                       {meal.notes || '-'} <Pencil className="h-2.5 w-2.5 inline ml-0.5 text-muted-foreground" />
+                                    </div>
+                                  )}
+
+                                  {meal.nutrition && (
+                                    <div className="text-[10px] text-muted-foreground/80 px-1">
+                                      {meal.nutrition.calories && `🔥 ${meal.nutrition.calories}`}
+                                      {meal.nutrition.protein && ` · P ${meal.nutrition.protein}`}
+                                      {meal.nutrition.carbs && ` · C ${meal.nutrition.carbs}`}
+                                      {meal.nutrition.fat && ` · F ${meal.nutrition.fat}`}
                                     </div>
                                   )}
                                 </div>

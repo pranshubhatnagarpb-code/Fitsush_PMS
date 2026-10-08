@@ -38,6 +38,23 @@ export const useBills = () => {
   });
 };
 
+export const useClientBills = (clientId: string) => {
+  return useQuery({
+    queryKey: ['bills', 'client', clientId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('receivables')
+        .select('*')
+        .eq('client_id', clientId)
+        .order('due_date', { ascending: false });
+
+      if (error) throw error;
+      return data as Bill[];
+    },
+    enabled: !!clientId,
+  });
+};
+
 export const useCreateBill = () => {
   const queryClient = useQueryClient();
   

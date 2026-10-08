@@ -220,7 +220,7 @@ const BloodReports = () => {
                 {effectiveClientId ? `${selectedClient?.name || 'Client'} Blood Report History` : 'All Blood Reports'}
               </h2>
               <p className="text-sm text-muted-foreground">
-                Latest reports appear first. Status badges flag low/high values vs. standard adult ranges • 
+                Latest reports appear first. Status flags use the clinic's functional ranges • 
                 Showing <span className="font-medium text-foreground">{reports.length}</span> 
                 {reports.length === 1 ? ' report' : ' reports'}
                 {effectiveClientId && ` for ${selectedClient?.name || 'selected client'}`}

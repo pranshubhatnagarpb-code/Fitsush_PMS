@@ -220,7 +220,7 @@ export const BloodReportFormDialog = ({ open, onOpenChange, report, defaultClien
           <div className="space-y-4">
             <div>
               <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">Review Extracted Values</h3>
-              <p className="text-xs text-muted-foreground mt-1">All fields are optional. Edit any value before saving. Status badges use standard adult reference ranges.</p>
+              <p className="text-xs text-muted-foreground mt-1">All fields are optional. Edit any value before saving.</p>
             </div>
 
             {grouped.map(([group, markers]) => (
@@ -240,7 +240,6 @@ export const BloodReportFormDialog = ({ open, onOpenChange, report, defaultClien
                           min="0"
                           value={values[m.key]}
                           onChange={(e) => setValues((prev) => ({ ...prev, [m.key]: e.target.value }))}
-                          placeholder={m.refLow !== null && m.refHigh !== null ? `${m.refLow}–${m.refHigh}` : m.refHigh !== null ? `< ${m.refHigh}` : m.refLow !== null ? `> ${m.refLow}` : ''}
                         />
                       </div>
                     );

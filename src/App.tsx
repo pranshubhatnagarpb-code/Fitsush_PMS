@@ -20,6 +20,7 @@ import AffiliateProductsImport from "./pages/AffiliateProductsImport";
 import Appointments from "./pages/Appointments";
 import BodyMeasurements from "./pages/BodyMeasurements";
 import BloodReports from "./pages/BloodReports";
+import ExcelView from "./pages/ExcelView";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -39,6 +40,7 @@ const App = () => (
             <Route path="/clients/:id" element={<ProtectedRoute><ClientDetail /></ProtectedRoute>} />
             <Route path="/body-measurements" element={<ProtectedRoute><BodyMeasurements /></ProtectedRoute>} />
             <Route path="/blood-reports" element={<ProtectedRoute><BloodReports /></ProtectedRoute>} />
+            <Route path="/excel-view" element={<ProtectedRoute><ExcelView /></ProtectedRoute>} />
             <Route path="/appointments" element={<ProtectedRoute><Appointments /></ProtectedRoute>} />
             
             <Route path="/diet-section" element={<ProtectedRoute><DietSection /></ProtectedRoute>} />

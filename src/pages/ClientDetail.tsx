@@ -20,6 +20,7 @@ import {
 } from '@/hooks/useClientDetail';
 import { useUpdateClient } from '@/hooks/useClients';
 import { ClientBodyMeasurementsPanel } from '@/components/body-measurements/ClientBodyMeasurementsPanel';
+import { ClientBillingPanel } from '@/components/billing/ClientBillingPanel';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -28,7 +29,12 @@ const GOAL_LABELS: Record<string, string> = {
   weight_loss: 'Weight Loss', weight_gain: 'Weight Gain', muscle_gain: 'Muscle Gain',
   energy: 'More Energy', gut_health: 'Gut Health', hormonal_balance: 'Hormonal Balance',
   sports_performance: 'Sports Performance', manage_medical_condition: 'Manage Condition',
+  pregnancy: 'Pregnancy', post_partum: 'Post-Partum', fertility: 'Fertility',
   general_wellness: 'General Wellness',
+};
+const COMMITMENT_LABELS: Record<string, string> = {
+  less_than_1: '< 1 month', '1_3': '1–3 months', '3_6': '3–6 months',
+  '6_12': '6–12 months', '12_plus': '12+ months',
 };
 const DIET_LABELS: Record<string, string> = {
   veg: 'Vegetarian', non_veg: 'Non-Vegetarian', eggetarian: 'Eggetarian',
@@ -202,6 +208,14 @@ function IntakePayloadView({ submission }: { submission: { payload: Record<strin
       <Section title="Goal & Complaints">
         <InfoRow label="Primary Goal" value={GOAL_LABELS[req.primaryGoal] ?? req.primaryGoal} />
         <InfoRow label="Chief Complaints" value={req.chiefComplaints?.join(', ')} />
+        <InfoRow
+          label="Current Medical Conditions"
+          value={req.currentConditions?.map((c: string) => (c === 'none' ? 'None' : c)).join(', ')}
+        />
+        <InfoRow
+          label="Food Restrictions"
+          value={req.foodRestrictions?.map((c: string) => (c === 'none' ? 'None' : c)).join(', ')}
+        />
       </Section>
 
       {Object.keys(goals).length > 0 ? (
@@ -210,6 +224,7 @@ function IntakePayloadView({ submission }: { submission: { payload: Record<strin
           <InfoRow label="What worked / didn't" value={goals.pastAttemptsOutcome} />
           <InfoRow label="Biggest challenge" value={goals.biggestChallenge} />
           <InfoRow label="Expectations from program" value={goals.programExpectations} />
+          <InfoRow label="Commitment" value={COMMITMENT_LABELS[goals.commitmentMonths] ?? goals.commitmentMonths} />
         </Section>
       ) : null}
 
@@ -276,6 +291,8 @@ function IntakePayloadView({ submission }: { submission: { payload: Record<strin
       {Object.keys(foodPattern).length > 0 ? (
         <Section title="Food Pattern">
           <InfoRow label="Diet type" value={DIET_LABELS[foodPattern.dietType] ?? foodPattern.dietType} />
+          <InfoRow label="Veg-only days" value={foodPattern.vegOnlyDays?.join(', ')} />
+          <InfoRow label="Other veg periods" value={foodPattern.vegDaysNote} />
           <InfoRow label="Home cooked?" value={HOME_COOKED_LABELS[foodPattern.homeCooked] ?? foodPattern.homeCooked} />
           <InfoRow label="Who cooks?" value={WHO_COOKS_LABELS[foodPattern.whoCooks] ?? foodPattern.whoCooks} />
           <InfoRow label="Cooking oil" value={foodPattern.cookingOil} />
@@ -1058,6 +1075,7 @@ const ClientDetail = () => {
           </TabsTrigger>
           <TabsTrigger value="trends">Trends</TabsTrigger>
           <TabsTrigger value="measurements">Body Measurements</TabsTrigger>
+          <TabsTrigger value="billing">Billing</TabsTrigger>
         </TabsList>
 
         <TabsContent value="profile">
@@ -1102,6 +1120,10 @@ const ClientDetail = () => {
 
         <TabsContent value="measurements">
           <ClientBodyMeasurementsPanel clientId={id!} clientName={client?.name ?? ''} />
+        </TabsContent>
+
+        <TabsContent value="billing">
+          <ClientBillingPanel clientId={id!} clientName={client?.name ?? ''} />
         </TabsContent>
       </Tabs>
     </DashboardLayout>

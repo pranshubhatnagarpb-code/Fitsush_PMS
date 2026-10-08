@@ -43,11 +43,12 @@ interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   bill?: Bill | null;
+  defaultClientId?: string;
   onSubmit: (data: Omit<Bill, 'id' | 'created_at' | 'updated_at'>) => Promise<void>;
   isLoading?: boolean;
 }
 
-export const BillFormDialog = ({ open, onOpenChange, bill, onSubmit, isLoading }: Props) => {
+export const BillFormDialog = ({ open, onOpenChange, bill, defaultClientId, onSubmit, isLoading }: Props) => {
   const [formData, setFormData] = useState<BillFormData>(emptyFormData);
   const { data: activeClients = [] } = useActiveClients();
   const isEdit = !!bill;
@@ -64,9 +65,9 @@ export const BillFormDialog = ({ open, onOpenChange, bill, onSubmit, isLoading }
         notes: bill.notes || '',
       });
     } else {
-      setFormData(emptyFormData);
+      setFormData({ ...emptyFormData, client_id: defaultClientId || '' });
     }
-  }, [bill, open]);
+  }, [bill, defaultClientId, open]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

@@ -1,4 +1,5 @@
-// Weekly Progress Reminder Edge Function
+// Progress Reminder Edge Function (weekly measurement nudge + monthly
+// summary nudge)
 //
 // IMPORTANT — MANUAL SETUP REQUIRED (see CLAUDE.md for the full checklist):
 //   - VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY / VAPID_SUBJECT — web-push signing
@@ -15,11 +16,19 @@
 //     role key, bypassing RLS (there's no user session to scope to — this
 //     runs for every subscribed client in one pass).
 //
-// Not called by any user-facing button — this only runs on the weekly cron
-// schedule. It fans out one Web Push notification per stored subscription,
-// asking the client to log their measurements in the PWA's Progress tab,
-// and prunes subscriptions that the push service reports as gone (404/410 —
-// e.g. the client uninstalled the PWA or cleared site data).
+// Not called by any user-facing button — this only runs on cron schedules
+// (see _db/push-subscriptions-and-reminder-cron.sql for both jobs). It fans
+// out one Web Push notification per stored subscription, and prunes
+// subscriptions the push service reports as gone (404/410 — e.g. the client
+// uninstalled the PWA or cleared site data).
+//
+// The cron call's JSON body picks which reminder copy to send:
+//   {} or {"type":"weekly_measurement"} (default) — "log this week's
+//     measurements", used by the Monday job.
+//   {"type":"monthly_summary"} — "your monthly progress summary is ready to
+//     download", used by the 1st-of-month job. Both link to the same
+//     /progress screen — that's also where the Download Progress Summary
+//     button lives.
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import webpush from "npm:web-push@3.6.7";
@@ -73,6 +82,9 @@ serve(async (req) => {
 
   webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
 
+  const reqBody = await req.json().catch(() => ({}));
+  const reminderType = reqBody?.type === "monthly_summary" ? "monthly_summary" : "weekly_measurement";
+
   try {
     const restHeaders = {
       apikey: SERVICE_ROLE_KEY,
@@ -89,11 +101,19 @@ serve(async (req) => {
     }
     const subs = (await listRes.json()) as PushSubscriptionRow[];
 
-    const payload = JSON.stringify({
-      title: "Weekly check-in 📊",
-      body: "Don't forget to log this week's measurements in your Progress tab.",
-      url: "/progress",
-    });
+    const payload = JSON.stringify(
+      reminderType === "monthly_summary"
+        ? {
+            title: "Your monthly progress summary is ready 📈",
+            body: "See how your measurements and blood work have trended this month — download it from your Progress tab.",
+            url: "/progress",
+          }
+        : {
+            title: "Weekly check-in 📊",
+            body: "Don't forget to log this week's measurements in your Progress tab.",
+            url: "/progress",
+          },
+    );
 
     let sent = 0;
     let failed = 0;
@@ -136,6 +156,7 @@ serve(async (req) => {
 
     return new Response(
       JSON.stringify({
+        type: reminderType,
         totalSubscriptions: subs.length,
         sent,
         failed,

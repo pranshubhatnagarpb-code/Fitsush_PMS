@@ -2,8 +2,9 @@ import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { DataTable } from '@/components/dashboard/DataTable';
-import { Home, ChevronRight, Plus, Pencil, Trash2, Search, X, KeyRound, ShieldCheck, Eye } from 'lucide-react';
+import { Home, ChevronRight, Plus, Pencil, Trash2, Search, X, KeyRound, ShieldCheck, Eye, StickyNote } from 'lucide-react';
 import { EnablePortalAccessDialog } from '@/components/clients/EnablePortalAccessDialog';
+import { ClientNotesDialog } from '@/components/clients/ClientNotesDialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -46,6 +47,13 @@ const Clients = () => {
   const [expiryFilter, setExpiryFilter] = useState<string>('all');
   const [portalDialogOpen, setPortalDialogOpen] = useState(false);
   const [portalClient, setPortalClient] = useState<Client | null>(null);
+  const [notesDialogOpen, setNotesDialogOpen] = useState(false);
+  const [notesClient, setNotesClient] = useState<Client | null>(null);
+
+  const openNotesDialog = (client: Client) => {
+    setNotesClient(client);
+    setNotesDialogOpen(true);
+  };
 
   const openPortalDialog = (client: Client) => {
     setPortalClient(client);
@@ -297,6 +305,9 @@ const Clients = () => {
           <Button variant="ghost" size="icon" title="View details" onClick={() => navigate(`/clients/${item.id}`)}>
             <Eye className="h-4 w-4 text-primary" />
           </Button>
+          <Button variant="ghost" size="icon" title="Conversation history / notes" onClick={() => openNotesDialog(item)}>
+            <StickyNote className="h-4 w-4" />
+          </Button>
           <Button variant="ghost" size="icon" onClick={() => openEditDialog(item)}>
             <Pencil className="h-4 w-4" />
           </Button>
@@ -422,6 +433,15 @@ const Clients = () => {
         client={portalClient}
         onSuccess={() => queryClient.invalidateQueries({ queryKey: ['clients'] })}
       />
+
+      {notesClient && (
+        <ClientNotesDialog
+          open={notesDialogOpen}
+          onOpenChange={(open) => { setNotesDialogOpen(open); if (!open) setNotesClient(null); }}
+          clientId={notesClient.id}
+          clientName={notesClient.name}
+        />
+      )}
     </DashboardLayout>
   );
 };

@@ -62,9 +62,7 @@ interface ClientFormData {
   pause_duration_days: string;
   measurement_date: string;
   initial_body_fat_percent: string;
-  initial_visceral_fat: string;
   initial_muscle_mass: string;
-  initial_body_age: string;
   initial_resting_metabolism: string;
   initial_neck: string;
   initial_chest: string;
@@ -140,9 +138,7 @@ const emptyFormData: ClientFormData = {
   pause_duration_days: '',
   measurement_date: '',
   initial_body_fat_percent: '',
-  initial_visceral_fat: '',
   initial_muscle_mass: '',
-  initial_body_age: '',
   initial_resting_metabolism: '',
   initial_neck: '',
   initial_chest: '',
@@ -270,9 +266,7 @@ export const ClientFormDialog = ({ open, onOpenChange, client, onSubmit, isLoadi
     const initialMeasurement = !isEdit && (
       formData.weight ||
       formData.initial_body_fat_percent ||
-      formData.initial_visceral_fat ||
       formData.initial_muscle_mass ||
-      formData.initial_body_age ||
       formData.initial_resting_metabolism ||
       formData.initial_neck ||
       formData.initial_chest ||
@@ -287,9 +281,7 @@ export const ClientFormDialog = ({ open, onOpenChange, client, onSubmit, isLoadi
       weight,
       bmi,
       body_fat_percent: formData.initial_body_fat_percent ? parseFloat(formData.initial_body_fat_percent) : null,
-      visceral_fat: formData.initial_visceral_fat ? parseFloat(formData.initial_visceral_fat) : null,
       muscle_mass: formData.initial_muscle_mass ? parseFloat(formData.initial_muscle_mass) : null,
-      body_age: formData.initial_body_age ? parseFloat(formData.initial_body_age) : null,
       resting_metabolism: formData.initial_resting_metabolism ? parseFloat(formData.initial_resting_metabolism) : null,
       neck: formData.initial_neck ? parseFloat(formData.initial_neck) : null,
       chest: formData.initial_chest ? parseFloat(formData.initial_chest) : null,
@@ -702,16 +694,8 @@ export const ClientFormDialog = ({ open, onOpenChange, client, onSubmit, isLoadi
                     <Input id="initial_body_fat_percent" type="number" step="0.01" min="0" value={formData.initial_body_fat_percent} onChange={(e) => setFormData({ ...formData, initial_body_fat_percent: e.target.value })} placeholder="e.g., 28.5" />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="initial_visceral_fat">VF (Visceral Fat)</Label>
-                    <Input id="initial_visceral_fat" type="number" step="0.01" min="0" value={formData.initial_visceral_fat} onChange={(e) => setFormData({ ...formData, initial_visceral_fat: e.target.value })} placeholder="e.g., 12" />
-                  </div>
-                  <div className="space-y-2">
                     <Label htmlFor="initial_muscle_mass">Muscle Mass</Label>
                     <Input id="initial_muscle_mass" type="number" step="0.01" min="0" value={formData.initial_muscle_mass} onChange={(e) => setFormData({ ...formData, initial_muscle_mass: e.target.value })} placeholder="e.g., 35.2" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="initial_body_age">Body Age</Label>
-                    <Input id="initial_body_age" type="number" step="1" min="0" value={formData.initial_body_age} onChange={(e) => setFormData({ ...formData, initial_body_age: e.target.value })} placeholder="e.g., 32" />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="initial_resting_metabolism">RM (Resting Metabolism)</Label>
@@ -765,7 +749,27 @@ export const ClientFormDialog = ({ open, onOpenChange, client, onSubmit, isLoadi
                   placeholder="e.g., 5000"
                 />
               </div>
+              <div className="space-y-2">
+                <Label htmlFor="total_receivables">Amount Pending (₹)</Label>
+                <Input
+                  id="total_receivables"
+                  type="number"
+                  step="0.01"
+                  value={formData.total_receivables}
+                  onChange={(e) => setFormData({ ...formData, total_receivables: e.target.value })}
+                  placeholder="0 if paid in full"
+                />
+              </div>
             </div>
+            {formData.total_fees && (
+              <p className="text-xs text-muted-foreground">
+                {(() => {
+                  const fees = parseFloat(formData.total_fees) || 0;
+                  const pending = parseFloat(formData.total_receivables) || 0;
+                  return `Saving this creates a bill entry for ₹${fees.toLocaleString('en-IN')} — marked ${pending > 0 ? `pending (₹${pending.toLocaleString('en-IN')} due)` : 'paid in full'}.`;
+                })()}
+              </p>
+            )}
           </div>
 
           {/* Notes & Status */}

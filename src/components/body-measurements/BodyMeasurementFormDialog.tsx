@@ -18,9 +18,7 @@ interface BodyMeasurementFormData {
   measurement_date: string;
   weight: string;
   body_fat_percent: string;
-  visceral_fat: string;
   muscle_mass: string;
-  body_age: string;
   resting_metabolism: string;
   neck: string;
   chest: string;
@@ -39,9 +37,7 @@ const emptyFormData: BodyMeasurementFormData = {
   measurement_date: today,
   weight: '',
   body_fat_percent: '',
-  visceral_fat: '',
   muscle_mass: '',
-  body_age: '',
   resting_metabolism: '',
   neck: '',
   chest: '',
@@ -77,13 +73,11 @@ const calcBmi = (weightKg: number | null, heightCm: number | null | undefined) =
 const bcaFields: Array<{ key: keyof Omit<BodyMeasurementFormData, 'client_id' | 'measurement_date' | 'notes' | 'neck' | 'chest' | 'tummy' | 'waist' | 'hip' | 'thigh' | 'arm' | 'bmi'>; label: string; placeholder: string }> = [
   { key: 'weight', label: 'Weight (kg)', placeholder: 'e.g., 72.4' },
   { key: 'body_fat_percent', label: 'Body Fat %', placeholder: 'e.g., 28.5' },
-  { key: 'visceral_fat', label: 'VF (Visceral Fat)', placeholder: 'e.g., 12' },
   { key: 'muscle_mass', label: 'Muscle Mass', placeholder: 'e.g., 35.2' },
-  { key: 'body_age', label: 'Body Age', placeholder: 'e.g., 32' },
   { key: 'resting_metabolism', label: 'RM (Resting Metabolism)', placeholder: 'e.g., 1650' },
 ];
 
-const measurementFields: Array<{ key: keyof Omit<BodyMeasurementFormData, 'client_id' | 'measurement_date' | 'notes' | 'weight' | 'bmi' | 'body_fat_percent' | 'visceral_fat' | 'muscle_mass' | 'body_age' | 'resting_metabolism'>; label: string; placeholder: string }> = [
+const measurementFields: Array<{ key: keyof Omit<BodyMeasurementFormData, 'client_id' | 'measurement_date' | 'notes' | 'weight' | 'bmi' | 'body_fat_percent' | 'muscle_mass' | 'resting_metabolism'>; label: string; placeholder: string }> = [
   { key: 'neck', label: 'Neck', placeholder: 'e.g., 14' },
   { key: 'chest', label: 'Chest', placeholder: 'e.g., 38' },
   { key: 'tummy', label: 'Tummy', placeholder: 'e.g., 32' },
@@ -105,9 +99,7 @@ export const BodyMeasurementFormDialog = ({ open, onOpenChange, measurement, def
         measurement_date: measurement.measurement_date || today,
         weight: measurement.weight?.toString() || '',
         body_fat_percent: measurement.body_fat_percent?.toString() || '',
-        visceral_fat: (measurement as any).visceral_fat?.toString() || '',
         muscle_mass: (measurement as any).muscle_mass?.toString() || '',
-        body_age: (measurement as any).body_age?.toString() || '',
         resting_metabolism: (measurement as any).resting_metabolism?.toString() || '',
         neck: measurement.neck?.toString() || '',
         chest: measurement.chest?.toString() || '',
@@ -145,9 +137,7 @@ export const BodyMeasurementFormDialog = ({ open, onOpenChange, measurement, def
       weight: parseOptionalNumber(formData.weight),
       bmi,
       body_fat_percent: parseOptionalNumber(formData.body_fat_percent),
-      visceral_fat: parseOptionalNumber(formData.visceral_fat),
       muscle_mass: parseOptionalNumber(formData.muscle_mass),
-      body_age: parseOptionalNumber(formData.body_age),
       resting_metabolism: parseOptionalNumber(formData.resting_metabolism),
       neck: parseOptionalNumber(formData.neck),
       chest: parseOptionalNumber(formData.chest),
