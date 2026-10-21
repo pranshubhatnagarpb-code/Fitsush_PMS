@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -69,6 +69,9 @@ const MealRecipesImport = () => {
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [loadingRecipes, setLoadingRecipes] = useState(false);
   const [search, setSearch] = useState('');
+  const [totalCount, setTotalCount] = useState<number | null>(null);
+  const [matchCount, setMatchCount] = useState<number | null>(null);
+  const loadSeq = useRef(0);
   const [editing, setEditing] = useState<Recipe | null>(null);
   const [editName, setEditName] = useState('');
   const [editIngredients, setEditIngredients] = useState('');
@@ -78,25 +81,62 @@ const MealRecipesImport = () => {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [addOpen, setAddOpen] = useState(false);
 
-  const loadRecipes = async () => {
-    setLoadingRecipes(true);
-    try {
+  // Supabase caps responses at 1000 rows per request, so page through the table.
+  const fetchAllRecipes = async <T,>(columns: string): Promise<T[]> => {
+    const all: T[] = [];
+    const batchSize = 1000;
+    for (let from = 0; ; from += batchSize) {
       const { data, error } = await supabase
         .from('meal_recipes')
-        .select('*')
-        .order('Meal_name', { ascending: true });
+        .select(columns)
+        .order('Meal_name', { ascending: true })
+        .order('id', { ascending: true })
+        .range(from, from + batchSize - 1);
       if (error) throw error;
-      setRecipes((data || []) as Recipe[]);
+      all.push(...((data || []) as T[]));
+      if (!data || data.length < batchSize) return all;
+    }
+  };
+
+  // The list shows at most RECIPE_LIST_LIMIT rows (loading all ~13k makes the page slow);
+  // search runs in the database so it still finds any recipe, and the counts are exact.
+  const RECIPE_LIST_LIMIT = 1000;
+
+  const loadRecipes = async (q = search) => {
+    const seq = ++loadSeq.current;
+    setLoadingRecipes(true);
+    try {
+      // Strip characters that would break PostgREST's or() filter syntax.
+      const term = q.trim().replace(/[,()%*\\]/g, ' ').trim();
+      let query = supabase
+        .from('meal_recipes')
+        .select('*', { count: 'exact' })
+        .order('Meal_name', { ascending: true })
+        .limit(RECIPE_LIST_LIMIT);
+      if (term) {
+        query = query.or(['Meal_name', 'Ingredients', 'Instructions', 'Remarks'].map((c) => `${c}.ilike.%${term}%`).join(','));
+      }
+      const [list, total] = await Promise.all([
+        query,
+        supabase.from('meal_recipes').select('id', { count: 'exact', head: true }),
+      ]);
+      if (list.error) throw list.error;
+      if (total.error) throw total.error;
+      if (seq !== loadSeq.current) return;
+      setRecipes((list.data || []) as Recipe[]);
+      setMatchCount(list.count ?? null);
+      setTotalCount(total.count ?? null);
     } catch (e: any) {
-      toast.error(`Failed to load recipes: ${e.message}`);
+      if (seq === loadSeq.current) toast.error(`Failed to load recipes: ${e.message}`);
     } finally {
-      setLoadingRecipes(false);
+      if (seq === loadSeq.current) setLoadingRecipes(false);
     }
   };
 
   useEffect(() => {
-    loadRecipes();
-  }, []);
+    const t = setTimeout(() => loadRecipes(search), search ? 300 : 0);
+    return () => clearTimeout(t);
+  }, [search]);
 
   const processRows = (raw: Array<Record<string, any>>) => {
     const seen = new Set<string>();
@@ -170,12 +210,8 @@ const MealRecipesImport = () => {
     }
     setImporting(true);
     try {
-      const { data: existing, error: fetchErr } = await supabase
-        .from('meal_recipes')
-        .select('meal_name_normalized');
-      if (fetchErr) throw fetchErr;
-
-      const existingSet = new Set((existing || []).map((e: any) => e.meal_name_normalized));
+      const existing = await fetchAllRecipes<{ meal_name_normalized: string }>('meal_name_normalized');
+      const existingSet = new Set(existing.map((e) => e.meal_name_normalized));
       const toInsert = valid.filter((r) => !existingSet.has(r.meal_name_normalized));
       const skipped = valid.length - toInsert.length;
 
@@ -297,12 +333,16 @@ const MealRecipesImport = () => {
   const invalidCount = rows.filter((r) => r.status === 'invalid').length;
   const dupCount = rows.filter((r) => r.status === 'duplicate-in-file').length;
 
-  const filteredRecipes = recipes.filter((r) => {
-    if (!search.trim()) return true;
-    const q = search.toLowerCase();
-    return [r.Meal_name, r.Ingredients, r.Instructions, r.Remarks]
-      .some((value) => (value || '').toLowerCase().includes(q));
-  });
+  const filteredRecipes = recipes;
+
+  const fmt = (n: number) => n.toLocaleString('en-IN');
+  const recipeCountLabel = (() => {
+    if (totalCount === null) return '';
+    const searching = !!search.trim();
+    const matches = matchCount ?? recipes.length;
+    const base = searching ? `${fmt(matches)} matching of ${fmt(totalCount)} total` : `${fmt(totalCount)} total`;
+    return matches > recipes.length ? `${base} · showing first ${fmt(recipes.length)}${searching ? '' : ' — search to find others'}` : base;
+  })();
 
   const dialogOpen = !!editing || addOpen;
 
@@ -409,7 +449,7 @@ const MealRecipesImport = () => {
           <div>
             <h2 className="text-lg font-semibold">Existing Recipes</h2>
             <p className="text-sm text-muted-foreground">
-              {loadingRecipes ? 'Loading...' : `${recipes.length} total`}
+              {loadingRecipes && totalCount === null ? 'Loading...' : recipeCountLabel}
             </p>
           </div>
           <div className="flex gap-2 items-center flex-wrap">

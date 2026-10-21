@@ -8,6 +8,11 @@ interface DayPlanInput {
   lunch_option_id: string | null;
   snacks_option_id: string | null;
   dinner_option_id: string | null;
+  // What the meal reads as: a diet_options name, a meal_recipes name, or free text.
+  breakfast_text: string | null;
+  lunch_text: string | null;
+  snacks_text: string | null;
+  dinner_text: string | null;
   total_calories: number;
   notes: string;
   sort_order: number;
@@ -45,6 +50,10 @@ export const useCreateDietPlan = () => {
         lunch_option_id: day.lunch_option_id || null,
         snacks_option_id: day.snacks_option_id || null,
         dinner_option_id: day.dinner_option_id || null,
+        breakfast_text: day.breakfast_text,
+        lunch_text: day.lunch_text,
+        snacks_text: day.snacks_text,
+        dinner_text: day.dinner_text,
         total_calories: day.total_calories,
         notes: day.notes,
         sort_order: index,

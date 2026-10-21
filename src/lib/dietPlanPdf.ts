@@ -199,6 +199,39 @@ function calculateAge(dateOfBirth: string): number | string {
   return age;
 }
 
+type RecipeRow = { Meal_name: string; Ingredients: string; Instructions: string; Remarks: string };
+
+const MEAL_KEYS = ['breakfast', 'lunch', 'snacks', 'dinner'] as const;
+
+// A manual-planner day's meal as written: the saved text (recipe name / typed meal),
+// falling back to the diet_options name for rows saved before *_text existed.
+export function dayMealText(day: any, meal: (typeof MEAL_KEYS)[number]): string {
+  return (day?.[`${meal}_text`] || day?.[`${meal}_option`]?.name || '').trim();
+}
+
+function escapeText(str: string): string {
+  return (str || '')
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+    .replace(/\n/g, '<br/>');
+}
+
+// Recipes whose name exactly matches a meal in a manual plan (same
+// normalisation as meal_recipes.meal_name_normalized).
+async function fetchRecipesForManualPlan(days: any[]): Promise<RecipeRow[]> {
+  const names = new Set<string>();
+  (days ?? []).forEach((d) => MEAL_KEYS.forEach((m) => {
+    const n = dayMealText(d, m).toLowerCase().replace(/[^a-z0-9]+/g, '');
+    if (n) names.add(n);
+  }));
+  if (names.size === 0) return [];
+  const { data, error } = await supabase
+    .from('meal_recipes')
+    .select('Meal_name, Ingredients, Instructions, Remarks')
+    .in('meal_name_normalized', [...names]);
+  if (error || !data) return [];
+  return data as RecipeRow[];
+}
+
 function escapeHtml(str: string): string {
   return str.replace(/\n/g, '<br/>');
 }
@@ -468,36 +501,46 @@ export function buildDietPlanHtml(
     .header p { color: #64748b; font-size: 12px; margin-top: 4px; }
     table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 10px; }
     th { background: #FF4D06; color: white; padding: 8px; text-align: left; }
-    td { padding: 8px; border-bottom: 1px solid #e2e8f0; }
+    td { padding: 8px; border-bottom: 1px solid #e2e8f0; vertical-align: top; }
     tr:nth-child(even) { background: #f8fafc; }
     .footer { text-align: center; margin-top: 25px; font-size: 9px; color: #64748b; }
   </style>
 </head>
 <body>
   <div class="header">
-    <h1>${plan.plan_name || 'Diet Plan'}</h1>
-    <p>Client: ${clientDetails.name}</p>
-    ${plan.instructions ? `<p style="margin-top:6px;font-style:italic;">${plan.instructions}</p>` : ''}
+    <h1>${escapeText(plan.plan_name || 'Diet Plan')}</h1>
+    <p>Client: ${escapeText(clientDetails.name)}</p>
+    ${plan.instructions ? `<p style="margin-top:6px;font-style:italic;">${escapeText(plan.instructions)}</p>` : ''}
   </div>
   <table>
     <thead>
       <tr>
-        <th>Day</th><th>Breakfast</th><th>Lunch</th><th>Snacks</th><th>Dinner</th><th>Calories</th>
+        <th>Day</th><th>Breakfast</th><th>Lunch</th><th>Snacks</th><th>Dinner</th><th>Calories</th><th>Notes</th>
       </tr>
     </thead>
     <tbody>
       ${days.map((d: any) => `
         <tr>
-          <td>${d.day_label}</td>
-          <td>${d.breakfast_option?.name || '-'}</td>
-          <td>${d.lunch_option?.name || '-'}</td>
-          <td>${d.snacks_option?.name || '-'}</td>
-          <td>${d.dinner_option?.name || '-'}</td>
-          <td>${d.total_calories || 0} kcal</td>
+          <td>${escapeText(d.day_label)}</td>
+          ${MEAL_KEYS.map((m) => `<td>${escapeText(dayMealText(d, m)) || '-'}</td>`).join('')}
+          <td>${d.total_calories ? `${d.total_calories} kcal` : '-'}</td>
+          <td>${escapeText(d.notes || '') || '-'}</td>
         </tr>
       `).join('')}
     </tbody>
   </table>
+  ${recipes.length > 0 ? `
+  <div style="margin-top: 24px;">
+    <h2 style="color: #FF4D06; font-size: 16px; border-bottom: 2px solid #FF4D06; padding-bottom: 6px; margin-bottom: 14px;">Recipes for mentioned meals</h2>
+    ${recipes.map(r => `
+      <div style="margin-bottom: 16px; page-break-inside: avoid;">
+        <h3 style="color: #1a5fb4; font-size: 13px; margin-bottom: 6px;">${escapeText(r.Meal_name)}</h3>
+        ${r.Ingredients ? `<div style="font-size: 11px; line-height: 1.5; color: #333; margin-bottom: 6px;"><strong>Ingredients:</strong><br/>${escapeText(r.Ingredients)}</div>` : ''}
+        <div style="font-size: 11px; line-height: 1.5; color: #333; margin-bottom: 6px;"><strong>Instructions:</strong><br/>${escapeText(r.Instructions)}</div>
+        ${r.Remarks ? `<div style="font-size: 11px; line-height: 1.5; color: #555;"><strong>Remarks:</strong><br/>${escapeText(r.Remarks)}</div>` : ''}
+      </div>
+    `).join('')}
+  </div>` : ''}
   <div class="footer">© ${new Date().getFullYear()} Fitsush - Personalized Nutrition Plan</div>
 </body>
 </html>`;
@@ -740,7 +783,7 @@ export async function openDietPlanForPrint(plan: any): Promise<void> {
 
   if (!isAI) {
     // Non-AI structured plan — use the simple table layout
-    const html = buildDietPlanHtml(plan);
+    const html = buildDietPlanHtml(plan, await fetchRecipesForManualPlan(plan.diet_plan_days));
     if (!html) return;
     const w = window.open('', '_blank');
     if (w) { w.document.write(html); w.document.close(); w.print(); }
@@ -799,7 +842,8 @@ export async function openDietPlanForPrint(plan: any): Promise<void> {
 // ---------------------------------------------------------------------------
 
 export async function generateDietPlanPdfBlob(plan: any): Promise<Blob | null> {
-  const html = buildDietPlanHtml(plan);
+  const isAI = plan.is_ai_generated && plan.ai_plan_data;
+  const html = buildDietPlanHtml(plan, isAI ? [] : await fetchRecipesForManualPlan(plan.diet_plan_days));
   if (!html) return null;
 
   const container = document.createElement('div');

@@ -8,23 +8,28 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Home, ChevronRight, Download, Mail, Plus, Trash2, ClipboardList, FilePlus } from 'lucide-react';
-import { useDietOptions, DietOption } from '@/hooks/useDietOptions';
+import { useDietOptions } from '@/hooks/useDietOptions';
 import { useActiveClients } from '@/hooks/useClients';
 import { useCreateDietPlan } from '@/hooks/useDietPlans';
 import { toast } from 'sonner';
 import { AIDietPlanGenerator } from '@/components/diet/AIDietPlanGenerator';
 import SavedDietPlans from '@/components/diet/SavedDietPlans';
+import { MealPicker, MealValue, emptyMeal } from '@/components/diet/MealPicker';
+import { openDietPlanForPrint } from '@/lib/dietPlanPdf';
 
 interface DayPlan {
   id: string;
   day: string;
   week: string;
-  breakfast: string;
-  lunch: string;
-  snacks: string;
-  dinner: string;
+  breakfast: MealValue;
+  lunch: MealValue;
+  snacks: MealValue;
+  dinner: MealValue;
   instructions: string;
 }
+
+type MealKey = 'breakfast' | 'lunch' | 'snacks' | 'dinner';
+const MEAL_KEYS: MealKey[] = ['breakfast', 'lunch', 'snacks', 'dinner'];
 
 const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 const weeks = ['Week 1', 'Week 2', 'Week 3', 'Week 4'];
@@ -38,10 +43,10 @@ const DietSection = () => {
       id: '1',
       day: 'Monday',
       week: 'Week 1',
-      breakfast: '',
-      lunch: '',
-      snacks: '',
-      dinner: '',
+      breakfast: emptyMeal,
+      lunch: emptyMeal,
+      snacks: emptyMeal,
+      dinner: emptyMeal,
       instructions: '',
     },
   ]);
@@ -60,10 +65,10 @@ const DietSection = () => {
       id: Date.now().toString(),
       day: 'Monday',
       week: 'Week 1',
-      breakfast: '',
-      lunch: '',
-      snacks: '',
-      dinner: '',
+      breakfast: emptyMeal,
+      lunch: emptyMeal,
+      snacks: emptyMeal,
+      dinner: emptyMeal,
       instructions: '',
     };
     setDayPlans([...dayPlans, newPlan]);
@@ -75,7 +80,7 @@ const DietSection = () => {
     }
   };
 
-  const updateDayPlan = (id: string, field: keyof DayPlan, value: string) => {
+  const updateDayPlan = <K extends keyof DayPlan>(id: string, field: K, value: DayPlan[K]) => {
     setDayPlans(
       dayPlans.map((plan) =>
         plan.id === id ? { ...plan, [field]: value } : plan
@@ -83,45 +88,49 @@ const DietSection = () => {
     );
   };
 
-  const calculateTotalCalories = (plan: DayPlan): number => {
-    let total = 0;
-    
-    [plan.breakfast, plan.lunch, plan.snacks, plan.dinner].forEach((mealId) => {
-      const meal = dietOptions.find((opt) => opt.id === mealId);
-      if (meal) total += meal.calories;
-    });
-    
-    return total;
-  };
+  // Only meals picked from diet_options carry calories; recipes and typed meals count as 0.
+  const calculateTotalCalories = (plan: DayPlan): number =>
+    MEAL_KEYS.reduce((total, key) => {
+      const meal = dietOptions.find((opt) => opt.id === plan[key].optionId);
+      return total + (meal?.calories ?? 0);
+    }, 0);
 
-  const getMealName = (mealId: string, options: DietOption[]): string => {
-    return options.find((opt) => opt.id === mealId)?.name || '-';
-  };
-
-  const getMealCalories = (mealId: string): number => {
-    return dietOptions.find((opt) => opt.id === mealId)?.calories || 0;
-  };
-
-  const savePlan = async () => {
-    if (!selectedClient || !planName) {
+  const validatePlan = () => {
+    if (!selectedClient || !planName.trim()) {
       toast.error('Please select client and enter plan name');
-      return;
+      return false;
     }
+    if (!dayPlans.some((plan) => MEAL_KEYS.some((key) => plan[key].text.trim()))) {
+      toast.error('Add at least one meal before saving');
+      return false;
+    }
+    return true;
+  };
 
-    const days = dayPlans.map((plan, index) => ({
+  const buildDays = () =>
+    dayPlans.map((plan, index) => ({
       day_label: `${plan.day} - ${plan.week}`,
-      breakfast_option_id: plan.breakfast || null,
-      lunch_option_id: plan.lunch || null,
-      snacks_option_id: plan.snacks || null,
-      dinner_option_id: plan.dinner || null,
+      breakfast_option_id: plan.breakfast.optionId,
+      lunch_option_id: plan.lunch.optionId,
+      snacks_option_id: plan.snacks.optionId,
+      dinner_option_id: plan.dinner.optionId,
+      breakfast_text: plan.breakfast.text.trim() || null,
+      lunch_text: plan.lunch.text.trim() || null,
+      snacks_text: plan.snacks.text.trim() || null,
+      dinner_text: plan.dinner.text.trim() || null,
       total_calories: calculateTotalCalories(plan),
       notes: plan.instructions,
       sort_order: index,
     }));
 
+  const savePlan = async () => {
+    if (!validatePlan()) return;
+
+    const days = buildDays();
+
     await createDietPlan.mutateAsync({
       client_id: selectedClient,
-      plan_name: planName,
+      plan_name: planName.trim(),
       instructions: generalInstructions,
       days,
     });
@@ -133,85 +142,24 @@ const DietSection = () => {
       id: '1',
       day: 'Monday',
       week: 'Week 1',
-      breakfast: '',
-      lunch: '',
-      snacks: '',
-      dinner: '',
+      breakfast: emptyMeal,
+      lunch: emptyMeal,
+      snacks: emptyMeal,
+      dinner: emptyMeal,
       instructions: '',
     }]);
   };
 
-  const generatePDF = () => {
-    if (!selectedClient || !planName || dayPlans.some(p => !p.breakfast || !p.lunch || !p.snacks || !p.dinner)) {
-      toast.error('Please fill all required fields');
-      return;
-    }
-
-    const clientName = clients.find(c => c.id === selectedClient)?.name || '';
-    
-    let content = `
-      <html>
-        <head>
-          <title>Diet Plan - ${clientName}</title>
-          <style>
-            body { font-family: Arial, sans-serif; padding: 20px; }
-            h1 { color: #FF4D06; }
-            table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-            th, td { border: 1px solid #e2e8f0; padding: 12px; text-align: left; }
-            th { background-color: #FFF7ED; color: #C2410C; }
-            .header { margin-bottom: 20px; }
-            .instructions { font-style: italic; color: #64748b; }
-          </style>
-        </head>
-        <body>
-          <div class="header">
-            <h1>FITSUSH - NUTRITION CLINIC</h1>
-            <h2>Diet Plan: ${planName}</h2>
-            <p><strong>Client:</strong> ${clientName}</p>
-            <p><strong>Generated:</strong> ${new Date().toLocaleDateString()}</p>
-            ${generalInstructions ? `<p><strong>Instructions:</strong> ${generalInstructions}</p>` : ''}
-          </div>
-          <table>
-            <thead>
-              <tr>
-                <th>Day/Week</th>
-                <th>Breakfast</th>
-                <th>Lunch</th>
-                <th>Snacks</th>
-                <th>Dinner</th>
-                <th>Calories</th>
-                <th>Notes</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${dayPlans.map(plan => `
-                <tr>
-                  <td>${plan.day} - ${plan.week}</td>
-                  <td>${getMealName(plan.breakfast, breakfastOptions)} (${getMealCalories(plan.breakfast)} kcal)</td>
-                  <td>${getMealName(plan.lunch, lunchOptions)} (${getMealCalories(plan.lunch)} kcal)</td>
-                  <td>${getMealName(plan.snacks, snacksOptions)} (${getMealCalories(plan.snacks)} kcal)</td>
-                  <td>${getMealName(plan.dinner, dinnerOptions)} (${getMealCalories(plan.dinner)} kcal)</td>
-                  <td><strong>${calculateTotalCalories(plan)} kcal</strong></td>
-                  <td class="instructions">${plan.instructions || '-'}</td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
-          <p style="margin-top: 30px; color: #64748b;">
-            © 2026 Fitsush. This nutrition plan is personalized and should be followed as advised.
-          </p>
-        </body>
-      </html>
-    `;
-
-    const printWindow = window.open('', '_blank');
-    if (printWindow) {
-      printWindow.document.write(content);
-      printWindow.document.close();
-      printWindow.print();
-    }
-
-    toast.success('PDF generated successfully!');
+  // Same layout as Saved Plans' download (and the PDF the client gets on publish).
+  const generatePDF = async () => {
+    if (!validatePlan()) return;
+    await openDietPlanForPrint({
+      plan_name: planName.trim(),
+      instructions: generalInstructions,
+      is_ai_generated: false,
+      clients: clients.find((c) => c.id === selectedClient),
+      diet_plan_days: buildDays(),
+    });
   };
 
   const sendEmail = () => {
@@ -369,60 +317,44 @@ const DietSection = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
                   <div className="space-y-2">
                     <Label>Breakfast</Label>
-                    <Select value={plan.breakfast} onValueChange={(val) => updateDayPlan(plan.id, 'breakfast', val)}>
-                      <SelectTrigger><SelectValue placeholder="Select breakfast" /></SelectTrigger>
-                      <SelectContent>
-                        {breakfastOptions.map((opt) => (
-                          <SelectItem key={opt.id} value={opt.id}>
-                            {opt.name} ({opt.calories} kcal) {!opt.is_vegetarian && '🍗'}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <MealPicker
+                      value={plan.breakfast}
+                      onChange={(val) => updateDayPlan(plan.id, 'breakfast', val)}
+                      options={breakfastOptions}
+                      placeholder="Select or type breakfast"
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label>Lunch</Label>
-                    <Select value={plan.lunch} onValueChange={(val) => updateDayPlan(plan.id, 'lunch', val)}>
-                      <SelectTrigger><SelectValue placeholder="Select lunch" /></SelectTrigger>
-                      <SelectContent>
-                        {lunchOptions.map((opt) => (
-                          <SelectItem key={opt.id} value={opt.id}>
-                            {opt.name} ({opt.calories} kcal) {!opt.is_vegetarian && '🍗'}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <MealPicker
+                      value={plan.lunch}
+                      onChange={(val) => updateDayPlan(plan.id, 'lunch', val)}
+                      options={lunchOptions}
+                      placeholder="Select or type lunch"
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label>Snacks</Label>
-                    <Select value={plan.snacks} onValueChange={(val) => updateDayPlan(plan.id, 'snacks', val)}>
-                      <SelectTrigger><SelectValue placeholder="Select snacks" /></SelectTrigger>
-                      <SelectContent>
-                        {snacksOptions.map((opt) => (
-                          <SelectItem key={opt.id} value={opt.id}>
-                            {opt.name} ({opt.calories} kcal)
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <MealPicker
+                      value={plan.snacks}
+                      onChange={(val) => updateDayPlan(plan.id, 'snacks', val)}
+                      options={snacksOptions}
+                      placeholder="Select or type snacks"
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label>Dinner</Label>
-                    <Select value={plan.dinner} onValueChange={(val) => updateDayPlan(plan.id, 'dinner', val)}>
-                      <SelectTrigger><SelectValue placeholder="Select dinner" /></SelectTrigger>
-                      <SelectContent>
-                        {dinnerOptions.map((opt) => (
-                          <SelectItem key={opt.id} value={opt.id}>
-                            {opt.name} ({opt.calories} kcal) {!opt.is_vegetarian && '🍗'}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <MealPicker
+                      value={plan.dinner}
+                      onChange={(val) => updateDayPlan(plan.id, 'dinner', val)}
+                      options={dinnerOptions}
+                      placeholder="Select or type dinner"
+                    />
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between">
-                  <div className="space-y-2 flex-1 mr-4">
+                <div>
+                  <div className="space-y-2">
                     <Label>Instructions</Label>
                     <Textarea
                       value={plan.instructions}
@@ -430,12 +362,6 @@ const DietSection = () => {
                       placeholder="Add any special instructions for this day..."
                       rows={2}
                     />
-                  </div>
-                  <div className="text-right">
-                    <p className="text-sm text-muted-foreground">Total Calories</p>
-                    <p className="text-2xl font-bold text-primary">
-                      {calculateTotalCalories(plan)} kcal
-                    </p>
                   </div>
                 </div>
               </Card>

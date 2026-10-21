@@ -926,40 +926,52 @@ export type Database = {
       diet_plan_days: {
         Row: {
           breakfast_option_id: string | null
+          breakfast_text: string | null
           created_at: string
           day_label: string
           diet_plan_id: string
           dinner_option_id: string | null
+          dinner_text: string | null
           id: string
           lunch_option_id: string | null
+          lunch_text: string | null
           notes: string | null
           snacks_option_id: string | null
+          snacks_text: string | null
           sort_order: number | null
           total_calories: number | null
         }
         Insert: {
           breakfast_option_id?: string | null
+          breakfast_text?: string | null
           created_at?: string
           day_label: string
           diet_plan_id: string
           dinner_option_id?: string | null
+          dinner_text?: string | null
           id?: string
           lunch_option_id?: string | null
+          lunch_text?: string | null
           notes?: string | null
           snacks_option_id?: string | null
+          snacks_text?: string | null
           sort_order?: number | null
           total_calories?: number | null
         }
         Update: {
           breakfast_option_id?: string | null
+          breakfast_text?: string | null
           created_at?: string
           day_label?: string
           diet_plan_id?: string
           dinner_option_id?: string | null
+          dinner_text?: string | null
           id?: string
           lunch_option_id?: string | null
+          lunch_text?: string | null
           notes?: string | null
           snacks_option_id?: string | null
+          snacks_text?: string | null
           sort_order?: number | null
           total_calories?: number | null
         }

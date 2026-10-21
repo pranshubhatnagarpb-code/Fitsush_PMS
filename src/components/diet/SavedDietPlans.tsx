@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Eye, Trash2, Download, Search, Calendar, User, Copy, Loader2, Edit, Check, X, Globe, EyeOff } from 'lucide-react';
-import { openDietPlanForPrint } from '@/lib/dietPlanPdf';
+import { openDietPlanForPrint, dayMealText } from '@/lib/dietPlanPdf';
 import { useSavedDietPlans, useDeleteDietPlan } from '@/hooks/useDietPlans';
 import { usePublishDietPlan, useUnpublishDietPlan } from '@/hooks/useDietPlanFiles';
 import { supabase } from '@/integrations/supabase/client';
@@ -547,17 +547,19 @@ const PlanDetailView = ({ plan }: { plan: any }) => {
             <TableHead>Snacks</TableHead>
             <TableHead>Dinner</TableHead>
             <TableHead>Calories</TableHead>
+            <TableHead>Notes</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {days.map((d: any) => (
             <TableRow key={d.id}>
               <TableCell className="font-medium">{d.day_label}</TableCell>
-              <TableCell>{d.breakfast_option?.name || '-'}</TableCell>
-              <TableCell>{d.lunch_option?.name || '-'}</TableCell>
-              <TableCell>{d.snacks_option?.name || '-'}</TableCell>
-              <TableCell>{d.dinner_option?.name || '-'}</TableCell>
-              <TableCell className="font-semibold">{d.total_calories || 0} kcal</TableCell>
+              <TableCell>{dayMealText(d, 'breakfast') || '-'}</TableCell>
+              <TableCell>{dayMealText(d, 'lunch') || '-'}</TableCell>
+              <TableCell>{dayMealText(d, 'snacks') || '-'}</TableCell>
+              <TableCell>{dayMealText(d, 'dinner') || '-'}</TableCell>
+              <TableCell className="font-semibold">{d.total_calories ? `${d.total_calories} kcal` : '-'}</TableCell>
+              <TableCell className="text-sm text-muted-foreground whitespace-pre-wrap">{d.notes || '-'}</TableCell>
             </TableRow>
           ))}
         </TableBody>
