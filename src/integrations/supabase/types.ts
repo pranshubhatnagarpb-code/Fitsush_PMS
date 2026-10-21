@@ -935,6 +935,7 @@ export type Database = {
           id: string
           lunch_option_id: string | null
           lunch_text: string | null
+          meals: Json | null
           notes: string | null
           snacks_option_id: string | null
           snacks_text: string | null
@@ -952,6 +953,7 @@ export type Database = {
           id?: string
           lunch_option_id?: string | null
           lunch_text?: string | null
+          meals?: Json | null
           notes?: string | null
           snacks_option_id?: string | null
           snacks_text?: string | null
@@ -969,6 +971,7 @@ export type Database = {
           id?: string
           lunch_option_id?: string | null
           lunch_text?: string | null
+          meals?: Json | null
           notes?: string | null
           snacks_option_id?: string | null
           snacks_text?: string | null

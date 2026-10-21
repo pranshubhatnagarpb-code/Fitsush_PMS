@@ -209,6 +209,32 @@ export function dayMealText(day: any, meal: (typeof MEAL_KEYS)[number]): string 
   return (day?.[`${meal}_text`] || day?.[`${meal}_option`]?.name || '').trim();
 }
 
+// Every meal of a manual-planner day, in chart order. Days saved with the
+// `meals` list can have any meal times; older days only have the four columns.
+export function dayMeals(day: any): Array<{ label: string; text: string }> {
+  if (Array.isArray(day?.meals) && day.meals.length > 0) {
+    return day.meals.map((m: any) => ({ label: String(m?.label ?? '').trim(), text: String(m?.text ?? '').trim() }));
+  }
+  return MEAL_KEYS.map((m) => ({ label: m[0].toUpperCase() + m.slice(1), text: dayMealText(day, m) }));
+}
+
+// Column headings for a plan's table: meal times in first-seen order, dropping
+// any meal time that's empty on every day.
+export function planMealColumns(days: any[]): string[] {
+  const order: string[] = [];
+  const used = new Set<string>();
+  (days ?? []).forEach((d) => dayMeals(d).forEach(({ label, text }) => {
+    const k = label.toLowerCase();
+    if (!order.some((l) => l.toLowerCase() === k)) order.push(label);
+    if (text) used.add(k);
+  }));
+  return order.filter((l) => used.has(l.toLowerCase()));
+}
+
+export function dayMealFor(day: any, label: string): string {
+  return dayMeals(day).find((m) => m.label.toLowerCase() === label.toLowerCase())?.text ?? '';
+}
+
 function escapeText(str: string): string {
   return (str || '')
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -219,8 +245,8 @@ function escapeText(str: string): string {
 // normalisation as meal_recipes.meal_name_normalized).
 async function fetchRecipesForManualPlan(days: any[]): Promise<RecipeRow[]> {
   const names = new Set<string>();
-  (days ?? []).forEach((d) => MEAL_KEYS.forEach((m) => {
-    const n = dayMealText(d, m).toLowerCase().replace(/[^a-z0-9]+/g, '');
+  (days ?? []).forEach((d) => dayMeals(d).forEach(({ text }) => {
+    const n = text.toLowerCase().replace(/[^a-z0-9]+/g, '');
     if (n) names.add(n);
   }));
   if (names.size === 0) return [];
@@ -488,6 +514,7 @@ export function buildDietPlanHtml(
   const days = ((plan.diet_plan_days ?? []) as any[]).sort(
     (a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0)
   );
+  const mealColumns = planMealColumns(days);
 
   return `<!DOCTYPE html>
 <html>
@@ -515,14 +542,14 @@ export function buildDietPlanHtml(
   <table>
     <thead>
       <tr>
-        <th>Day</th><th>Breakfast</th><th>Lunch</th><th>Snacks</th><th>Dinner</th><th>Calories</th><th>Notes</th>
+        <th>Day</th>${mealColumns.map((l) => `<th>${escapeText(l)}</th>`).join('')}<th>Calories</th><th>Notes</th>
       </tr>
     </thead>
     <tbody>
       ${days.map((d: any) => `
         <tr>
           <td>${escapeText(d.day_label)}</td>
-          ${MEAL_KEYS.map((m) => `<td>${escapeText(dayMealText(d, m)) || '-'}</td>`).join('')}
+          ${mealColumns.map((l) => `<td>${escapeText(dayMealFor(d, l)) || '-'}</td>`).join('')}
           <td>${d.total_calories ? `${d.total_calories} kcal` : '-'}</td>
           <td>${escapeText(d.notes || '') || '-'}</td>
         </tr>

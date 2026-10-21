@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Home, ChevronRight, Download, Mail, Plus, Trash2, ClipboardList, FilePlus } from 'lucide-react';
+import { Home, ChevronRight, Download, Mail, Plus, Trash2, ClipboardList, FilePlus, ArrowUp, ArrowDown } from 'lucide-react';
 import { useDietOptions } from '@/hooks/useDietOptions';
 import { useActiveClients } from '@/hooks/useClients';
 import { useCreateDietPlan } from '@/hooks/useDietPlans';
@@ -17,19 +17,32 @@ import SavedDietPlans from '@/components/diet/SavedDietPlans';
 import { MealPicker, MealValue, emptyMeal } from '@/components/diet/MealPicker';
 import { openDietPlanForPrint } from '@/lib/dietPlanPdf';
 
+type StandardMealKey = 'breakfast' | 'lunch' | 'snacks' | 'dinner';
+const STANDARD_MEAL_KEYS: StandardMealKey[] = ['breakfast', 'lunch', 'snacks', 'dinner'];
+
+// A row of the diet chart, shared by every day. The four defaults keep `key`,
+// which filters diet_options by meal_type and fills the legacy
+// diet_plan_days.<key>_option_id / <key>_text columns; added ones have no key.
+interface MealTime {
+  id: string;
+  label: string;
+  key?: StandardMealKey;
+}
+
 interface DayPlan {
   id: string;
   day: string;
   week: string;
-  breakfast: MealValue;
-  lunch: MealValue;
-  snacks: MealValue;
-  dinner: MealValue;
+  meals: Record<string, MealValue>; // keyed by MealTime.id
   instructions: string;
 }
 
-type MealKey = 'breakfast' | 'lunch' | 'snacks' | 'dinner';
-const MEAL_KEYS: MealKey[] = ['breakfast', 'lunch', 'snacks', 'dinner'];
+const defaultMealTimes = (): MealTime[] =>
+  STANDARD_MEAL_KEYS.map((key) => ({ id: key, label: key[0].toUpperCase() + key.slice(1), key }));
+
+const newDayPlan = (id: string): DayPlan => ({ id, day: 'Monday', week: 'Week 1', meals: {}, instructions: '' });
+
+const mealOf = (plan: DayPlan, mealTimeId: string): MealValue => plan.meals[mealTimeId] ?? emptyMeal;
 
 const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 const weeks = ['Week 1', 'Week 2', 'Week 3', 'Week 4'];
@@ -38,40 +51,46 @@ const DietSection = () => {
   const [selectedClient, setSelectedClient] = useState('');
   const [planName, setPlanName] = useState('');
   const [generalInstructions, setGeneralInstructions] = useState('');
-  const [dayPlans, setDayPlans] = useState<DayPlan[]>([
-    {
-      id: '1',
-      day: 'Monday',
-      week: 'Week 1',
-      breakfast: emptyMeal,
-      lunch: emptyMeal,
-      snacks: emptyMeal,
-      dinner: emptyMeal,
-      instructions: '',
-    },
-  ]);
+  const [mealTimes, setMealTimes] = useState<MealTime[]>(defaultMealTimes);
+  const [dayPlans, setDayPlans] = useState<DayPlan[]>([newDayPlan('1')]);
 
   const { data: dietOptions = [], isLoading: optionsLoading } = useDietOptions();
   const { data: clients = [], isLoading: clientsLoading } = useActiveClients();
   const createDietPlan = useCreateDietPlan();
 
-  const breakfastOptions = dietOptions.filter(opt => opt.meal_type === 'breakfast');
-  const lunchOptions = dietOptions.filter(opt => opt.meal_type === 'lunch');
-  const snacksOptions = dietOptions.filter(opt => opt.meal_type === 'snacks');
-  const dinnerOptions = dietOptions.filter(opt => opt.meal_type === 'dinner');
+  // Default meal times list their own meal_type; added meal times can use any option.
+  const optionsFor = (mt: MealTime) =>
+    mt.key ? dietOptions.filter((opt) => opt.meal_type === mt.key) : dietOptions;
+
+  const addMealTime = () => {
+    setMealTimes([...mealTimes, { id: `custom-${Date.now()}`, label: '' }]);
+  };
+
+  const renameMealTime = (id: string, label: string) => {
+    setMealTimes(mealTimes.map((mt) => (mt.id === id ? { ...mt, label } : mt)));
+  };
+
+  const moveMealTime = (index: number, direction: -1 | 1) => {
+    const target = index + direction;
+    if (target < 0 || target >= mealTimes.length) return;
+    const next = [...mealTimes];
+    [next[index], next[target]] = [next[target], next[index]];
+    setMealTimes(next);
+  };
+
+  const removeMealTime = (mt: MealTime) => {
+    if (mealTimes.length <= 1) return;
+    const inUse = dayPlans.some((plan) => mealOf(plan, mt.id).text.trim());
+    if (inUse && !confirm(`Remove "${mt.label || 'this meal time'}"? Meals entered for it on every day will be removed too.`)) return;
+    setMealTimes(mealTimes.filter((m) => m.id !== mt.id));
+    setDayPlans(dayPlans.map((plan) => {
+      const { [mt.id]: _removed, ...rest } = plan.meals;
+      return { ...plan, meals: rest };
+    }));
+  };
 
   const addDayPlan = () => {
-    const newPlan: DayPlan = {
-      id: Date.now().toString(),
-      day: 'Monday',
-      week: 'Week 1',
-      breakfast: emptyMeal,
-      lunch: emptyMeal,
-      snacks: emptyMeal,
-      dinner: emptyMeal,
-      instructions: '',
-    };
-    setDayPlans([...dayPlans, newPlan]);
+    setDayPlans([...dayPlans, newDayPlan(Date.now().toString())]);
   };
 
   const removeDayPlan = (id: string) => {
@@ -88,10 +107,16 @@ const DietSection = () => {
     );
   };
 
+  const updateMeal = (planId: string, mealTimeId: string, value: MealValue) => {
+    setDayPlans(dayPlans.map((plan) =>
+      plan.id === planId ? { ...plan, meals: { ...plan.meals, [mealTimeId]: value } } : plan
+    ));
+  };
+
   // Only meals picked from diet_options carry calories; recipes and typed meals count as 0.
   const calculateTotalCalories = (plan: DayPlan): number =>
-    MEAL_KEYS.reduce((total, key) => {
-      const meal = dietOptions.find((opt) => opt.id === plan[key].optionId);
+    mealTimes.reduce((total, mt) => {
+      const meal = dietOptions.find((opt) => opt.id === mealOf(plan, mt.id).optionId);
       return total + (meal?.calories ?? 0);
     }, 0);
 
@@ -100,7 +125,16 @@ const DietSection = () => {
       toast.error('Please select client and enter plan name');
       return false;
     }
-    if (!dayPlans.some((plan) => MEAL_KEYS.some((key) => plan[key].text.trim()))) {
+    const labels = mealTimes.map((mt) => mt.label.trim().toLowerCase());
+    if (labels.some((l) => !l)) {
+      toast.error('Give every meal time a name (or remove the empty one)');
+      return false;
+    }
+    if (new Set(labels).size !== labels.length) {
+      toast.error('Two meal times have the same name');
+      return false;
+    }
+    if (!dayPlans.some((plan) => mealTimes.some((mt) => mealOf(plan, mt.id).text.trim()))) {
       toast.error('Add at least one meal before saving');
       return false;
     }
@@ -108,20 +142,32 @@ const DietSection = () => {
   };
 
   const buildDays = () =>
-    dayPlans.map((plan, index) => ({
-      day_label: `${plan.day} - ${plan.week}`,
-      breakfast_option_id: plan.breakfast.optionId,
-      lunch_option_id: plan.lunch.optionId,
-      snacks_option_id: plan.snacks.optionId,
-      dinner_option_id: plan.dinner.optionId,
-      breakfast_text: plan.breakfast.text.trim() || null,
-      lunch_text: plan.lunch.text.trim() || null,
-      snacks_text: plan.snacks.text.trim() || null,
-      dinner_text: plan.dinner.text.trim() || null,
-      total_calories: calculateTotalCalories(plan),
-      notes: plan.instructions,
-      sort_order: index,
-    }));
+    dayPlans.map((plan, index) => {
+      const legacy = (key: StandardMealKey) => {
+        const mt = mealTimes.find((m) => m.key === key);
+        return mt ? mealOf(plan, mt.id) : emptyMeal;
+      };
+      const [breakfast, lunch, snacks, dinner] = STANDARD_MEAL_KEYS.map(legacy);
+      return {
+        day_label: `${plan.day} - ${plan.week}`,
+        meals: mealTimes.map((mt) => ({
+          label: mt.label.trim(),
+          text: mealOf(plan, mt.id).text.trim() || null,
+          option_id: mealOf(plan, mt.id).optionId,
+        })),
+        breakfast_option_id: breakfast.optionId,
+        lunch_option_id: lunch.optionId,
+        snacks_option_id: snacks.optionId,
+        dinner_option_id: dinner.optionId,
+        breakfast_text: breakfast.text.trim() || null,
+        lunch_text: lunch.text.trim() || null,
+        snacks_text: snacks.text.trim() || null,
+        dinner_text: dinner.text.trim() || null,
+        total_calories: calculateTotalCalories(plan),
+        notes: plan.instructions,
+        sort_order: index,
+      };
+    });
 
   const savePlan = async () => {
     if (!validatePlan()) return;
@@ -135,19 +181,10 @@ const DietSection = () => {
       days,
     });
 
-    // Reset form
+    // Reset form (meal times are kept, so the next plan can reuse the same chart rows)
     setPlanName('');
     setGeneralInstructions('');
-    setDayPlans([{
-      id: '1',
-      day: 'Monday',
-      week: 'Week 1',
-      breakfast: emptyMeal,
-      lunch: emptyMeal,
-      snacks: emptyMeal,
-      dinner: emptyMeal,
-      instructions: '',
-    }]);
+    setDayPlans([newDayPlan('1')]);
   };
 
   // Same layout as Saved Plans' download (and the PDF the client gets on publish).
@@ -271,6 +308,48 @@ const DietSection = () => {
             </div>
           </Card>
 
+          {/* Meal Times */}
+          <Card className="p-6 mb-6 shadow-card">
+            <div className="flex items-center justify-between mb-1 flex-wrap gap-2">
+              <h3 className="font-semibold text-foreground">Meal Times</h3>
+              <Button variant="outline" size="sm" onClick={addMealTime}>
+                <Plus className="h-4 w-4 mr-1" /> Add Meal Time
+              </Button>
+            </div>
+            <p className="text-sm text-muted-foreground mb-4">
+              These are the rows of the chart, used for every day. Rename them, add your own (e.g. Early Morning, Mid-Morning, Bedtime), or reorder them.
+            </p>
+            <div className="space-y-2">
+              {mealTimes.map((mt, i) => (
+                <div key={mt.id} className="flex items-center gap-2">
+                  <Input
+                    value={mt.label}
+                    onChange={(e) => renameMealTime(mt.id, e.target.value)}
+                    placeholder="e.g., Early Morning (6:30 AM)"
+                    className="max-w-md"
+                    autoFocus={!mt.key && !mt.label}
+                  />
+                  <Button variant="ghost" size="icon" onClick={() => moveMealTime(i, -1)} disabled={i === 0} title="Move up">
+                    <ArrowUp className="h-4 w-4" />
+                  </Button>
+                  <Button variant="ghost" size="icon" onClick={() => moveMealTime(i, 1)} disabled={i === mealTimes.length - 1} title="Move down">
+                    <ArrowDown className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => removeMealTime(mt)}
+                    disabled={mealTimes.length <= 1}
+                    title="Remove meal time"
+                    className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </Card>
+
           {/* Day Plans */}
           <div className="space-y-4">
             {dayPlans.map((plan, index) => (
@@ -315,42 +394,17 @@ const DietSection = () => {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
-                  <div className="space-y-2">
-                    <Label>Breakfast</Label>
-                    <MealPicker
-                      value={plan.breakfast}
-                      onChange={(val) => updateDayPlan(plan.id, 'breakfast', val)}
-                      options={breakfastOptions}
-                      placeholder="Select or type breakfast"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Lunch</Label>
-                    <MealPicker
-                      value={plan.lunch}
-                      onChange={(val) => updateDayPlan(plan.id, 'lunch', val)}
-                      options={lunchOptions}
-                      placeholder="Select or type lunch"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Snacks</Label>
-                    <MealPicker
-                      value={plan.snacks}
-                      onChange={(val) => updateDayPlan(plan.id, 'snacks', val)}
-                      options={snacksOptions}
-                      placeholder="Select or type snacks"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Dinner</Label>
-                    <MealPicker
-                      value={plan.dinner}
-                      onChange={(val) => updateDayPlan(plan.id, 'dinner', val)}
-                      options={dinnerOptions}
-                      placeholder="Select or type dinner"
-                    />
-                  </div>
+                  {mealTimes.map((mt) => (
+                    <div key={mt.id} className="space-y-2">
+                      <Label>{mt.label.trim() || <span className="text-muted-foreground italic">Unnamed meal time</span>}</Label>
+                      <MealPicker
+                        value={mealOf(plan, mt.id)}
+                        onChange={(val) => updateMeal(plan.id, mt.id, val)}
+                        options={optionsFor(mt)}
+                        placeholder={`Select or type ${mt.label.trim().toLowerCase() || 'meal'}`}
+                      />
+                    </div>
+                  ))}
                 </div>
 
                 <div>

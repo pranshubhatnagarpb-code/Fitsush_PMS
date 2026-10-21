@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Eye, Trash2, Download, Search, Calendar, User, Copy, Loader2, Edit, Check, X, Globe, EyeOff } from 'lucide-react';
-import { openDietPlanForPrint, dayMealText } from '@/lib/dietPlanPdf';
+import { openDietPlanForPrint, planMealColumns, dayMealFor } from '@/lib/dietPlanPdf';
 import { useSavedDietPlans, useDeleteDietPlan } from '@/hooks/useDietPlans';
 import { usePublishDietPlan, useUnpublishDietPlan } from '@/hooks/useDietPlanFiles';
 import { supabase } from '@/integrations/supabase/client';
@@ -531,6 +531,7 @@ const PlanDetailView = ({ plan }: { plan: any }) => {
   }
 
   const days = (plan.diet_plan_days || []).sort((a: any, b: any) => (a.sort_order || 0) - (b.sort_order || 0));
+  const mealColumns = planMealColumns(days);
 
   return (
     <div className="space-y-4">
@@ -542,10 +543,7 @@ const PlanDetailView = ({ plan }: { plan: any }) => {
         <TableHeader>
           <TableRow>
             <TableHead>Day</TableHead>
-            <TableHead>Breakfast</TableHead>
-            <TableHead>Lunch</TableHead>
-            <TableHead>Snacks</TableHead>
-            <TableHead>Dinner</TableHead>
+            {mealColumns.map((label) => <TableHead key={label}>{label}</TableHead>)}
             <TableHead>Calories</TableHead>
             <TableHead>Notes</TableHead>
           </TableRow>
@@ -554,10 +552,7 @@ const PlanDetailView = ({ plan }: { plan: any }) => {
           {days.map((d: any) => (
             <TableRow key={d.id}>
               <TableCell className="font-medium">{d.day_label}</TableCell>
-              <TableCell>{dayMealText(d, 'breakfast') || '-'}</TableCell>
-              <TableCell>{dayMealText(d, 'lunch') || '-'}</TableCell>
-              <TableCell>{dayMealText(d, 'snacks') || '-'}</TableCell>
-              <TableCell>{dayMealText(d, 'dinner') || '-'}</TableCell>
+              {mealColumns.map((label) => <TableCell key={label}>{dayMealFor(d, label) || '-'}</TableCell>)}
               <TableCell className="font-semibold">{d.total_calories ? `${d.total_calories} kcal` : '-'}</TableCell>
               <TableCell className="text-sm text-muted-foreground whitespace-pre-wrap">{d.notes || '-'}</TableCell>
             </TableRow>
