@@ -67,6 +67,7 @@ interface ClientFormData {
   initial_neck: string;
   initial_chest: string;
   initial_tummy: string;
+  initial_shoulder: string;
   initial_waist: string;
   initial_hip: string;
   initial_thigh: string;
@@ -143,6 +144,7 @@ const emptyFormData: ClientFormData = {
   initial_neck: '',
   initial_chest: '',
   initial_tummy: '',
+  initial_shoulder: '',
   initial_waist: '',
   initial_hip: '',
   initial_thigh: '',
@@ -271,6 +273,7 @@ export const ClientFormDialog = ({ open, onOpenChange, client, onSubmit, isLoadi
       formData.initial_neck ||
       formData.initial_chest ||
       formData.initial_tummy ||
+      formData.initial_shoulder ||
       formData.initial_waist ||
       formData.initial_hip ||
       formData.initial_thigh ||
@@ -286,6 +289,7 @@ export const ClientFormDialog = ({ open, onOpenChange, client, onSubmit, isLoadi
       neck: formData.initial_neck ? parseFloat(formData.initial_neck) : null,
       chest: formData.initial_chest ? parseFloat(formData.initial_chest) : null,
       tummy: formData.initial_tummy ? parseFloat(formData.initial_tummy) : null,
+      shoulder: formData.initial_shoulder ? parseFloat(formData.initial_shoulder) : null,
       waist: formData.initial_waist ? parseFloat(formData.initial_waist) : null,
       hip: formData.initial_hip ? parseFloat(formData.initial_hip) : null,
       thigh: formData.initial_thigh ? parseFloat(formData.initial_thigh) : null,
@@ -720,6 +724,7 @@ export const ClientFormDialog = ({ open, onOpenChange, client, onSubmit, isLoadi
                   <div className="space-y-2"><Label htmlFor="initial_neck">Neck</Label><Input id="initial_neck" type="number" step="0.01" min="0" value={formData.initial_neck} onChange={(e) => setFormData({ ...formData, initial_neck: e.target.value })} placeholder="e.g., 14" /></div>
                   <div className="space-y-2"><Label htmlFor="initial_chest">Chest</Label><Input id="initial_chest" type="number" step="0.01" min="0" value={formData.initial_chest} onChange={(e) => setFormData({ ...formData, initial_chest: e.target.value })} placeholder="e.g., 38" /></div>
                   <div className="space-y-2"><Label htmlFor="initial_tummy">Tummy</Label><Input id="initial_tummy" type="number" step="0.01" min="0" value={formData.initial_tummy} onChange={(e) => setFormData({ ...formData, initial_tummy: e.target.value })} placeholder="e.g., 32" /></div>
+                  <div className="space-y-2"><Label htmlFor="initial_shoulder">Shoulder</Label><Input id="initial_shoulder" type="number" step="0.01" min="0" value={formData.initial_shoulder} onChange={(e) => setFormData({ ...formData, initial_shoulder: e.target.value })} placeholder="e.g., 42" /></div>
                   <div className="space-y-2"><Label htmlFor="initial_waist">Waist</Label><Input id="initial_waist" type="number" step="0.01" min="0" value={formData.initial_waist} onChange={(e) => setFormData({ ...formData, initial_waist: e.target.value })} placeholder="e.g., 34" /></div>
                   <div className="space-y-2"><Label htmlFor="initial_hip">Hip</Label><Input id="initial_hip" type="number" step="0.01" min="0" value={formData.initial_hip} onChange={(e) => setFormData({ ...formData, initial_hip: e.target.value })} placeholder="e.g., 40" /></div>
                   <div className="space-y-2"><Label htmlFor="initial_thigh">Thigh</Label><Input id="initial_thigh" type="number" step="0.01" min="0" value={formData.initial_thigh} onChange={(e) => setFormData({ ...formData, initial_thigh: e.target.value })} placeholder="e.g., 22" /></div>

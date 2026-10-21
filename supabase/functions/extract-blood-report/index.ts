@@ -86,6 +86,7 @@ const MARKER_KEYS = [
   "osmolarity",
   "magnesium",
   "selenium",
+  "zinc",
   "ldh",
   "free_t3",
   "free_t4",

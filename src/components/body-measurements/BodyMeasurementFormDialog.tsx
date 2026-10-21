@@ -23,6 +23,7 @@ interface BodyMeasurementFormData {
   neck: string;
   chest: string;
   tummy: string;
+  shoulder: string;
   waist: string;
   hip: string;
   thigh: string;
@@ -42,6 +43,7 @@ const emptyFormData: BodyMeasurementFormData = {
   neck: '',
   chest: '',
   tummy: '',
+  shoulder: '',
   waist: '',
   hip: '',
   thigh: '',
@@ -70,7 +72,7 @@ const calcBmi = (weightKg: number | null, heightCm: number | null | undefined) =
   return Math.round((weightKg / (m * m)) * 10) / 10;
 };
 
-const bcaFields: Array<{ key: keyof Omit<BodyMeasurementFormData, 'client_id' | 'measurement_date' | 'notes' | 'neck' | 'chest' | 'tummy' | 'waist' | 'hip' | 'thigh' | 'arm' | 'bmi'>; label: string; placeholder: string }> = [
+const bcaFields: Array<{ key: keyof Omit<BodyMeasurementFormData, 'client_id' | 'measurement_date' | 'notes' | 'neck' | 'chest' | 'tummy' | 'shoulder' | 'waist' | 'hip' | 'thigh' | 'arm' | 'bmi'>; label: string; placeholder: string }> = [
   { key: 'weight', label: 'Weight (kg)', placeholder: 'e.g., 72.4' },
   { key: 'body_fat_percent', label: 'Body Fat %', placeholder: 'e.g., 28.5' },
   { key: 'muscle_mass', label: 'Muscle Mass', placeholder: 'e.g., 35.2' },
@@ -81,6 +83,7 @@ const measurementFields: Array<{ key: keyof Omit<BodyMeasurementFormData, 'clien
   { key: 'neck', label: 'Neck', placeholder: 'e.g., 14' },
   { key: 'chest', label: 'Chest', placeholder: 'e.g., 38' },
   { key: 'tummy', label: 'Tummy', placeholder: 'e.g., 32' },
+  { key: 'shoulder', label: 'Shoulder', placeholder: 'e.g., 42' },
   { key: 'waist', label: 'Waist', placeholder: 'e.g., 34' },
   { key: 'hip', label: 'Hip', placeholder: 'e.g., 40' },
   { key: 'thigh', label: 'Thigh', placeholder: 'e.g., 22' },
@@ -104,6 +107,7 @@ export const BodyMeasurementFormDialog = ({ open, onOpenChange, measurement, def
         neck: measurement.neck?.toString() || '',
         chest: measurement.chest?.toString() || '',
         tummy: (measurement as any).tummy?.toString() || '',
+        shoulder: (measurement as any).shoulder?.toString() || '',
         waist: measurement.waist?.toString() || '',
         hip: measurement.hip?.toString() || '',
         thigh: measurement.thigh?.toString() || '',
@@ -142,6 +146,7 @@ export const BodyMeasurementFormDialog = ({ open, onOpenChange, measurement, def
       neck: parseOptionalNumber(formData.neck),
       chest: parseOptionalNumber(formData.chest),
       tummy: parseOptionalNumber(formData.tummy),
+      shoulder: parseOptionalNumber(formData.shoulder),
       waist: parseOptionalNumber(formData.waist),
       hip: parseOptionalNumber(formData.hip),
       thigh: parseOptionalNumber(formData.thigh),

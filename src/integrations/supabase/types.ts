@@ -163,6 +163,7 @@ export type Database = {
           rdw: number | null
           report_id: string
           selenium: number | null
+          zinc: number | null
           sgot: number | null
           sgpt: number | null
           sodium: number | null
@@ -245,6 +246,7 @@ export type Database = {
           rdw?: number | null
           report_id: string
           selenium?: number | null
+          zinc?: number | null
           sgot?: number | null
           sgpt?: number | null
           sodium?: number | null
@@ -327,6 +329,7 @@ export type Database = {
           rdw?: number | null
           report_id?: string
           selenium?: number | null
+          zinc?: number | null
           sgot?: number | null
           sgpt?: number | null
           sodium?: number | null
@@ -745,6 +748,7 @@ export type Database = {
         Row: {
           address: string | null
           anniversary_date: string | null
+          client_code: string | null
           created_at: string
           date_of_birth: string | null
           diet_preference: string | null
@@ -777,6 +781,7 @@ export type Database = {
         Insert: {
           address?: string | null
           anniversary_date?: string | null
+          client_code?: string | null
           created_at?: string
           date_of_birth?: string | null
           diet_preference?: string | null
@@ -809,6 +814,7 @@ export type Database = {
         Update: {
           address?: string | null
           anniversary_date?: string | null
+          client_code?: string | null
           created_at?: string
           date_of_birth?: string | null
           diet_preference?: string | null

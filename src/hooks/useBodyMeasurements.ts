@@ -16,6 +16,7 @@ export interface BodyMeasurement {
   neck: number | null;
   chest: number | null;
   tummy: number | null;
+  shoulder: number | null;
   waist: number | null;
   hip: number | null;
   thigh: number | null;
@@ -42,6 +43,7 @@ export interface BodyMeasurementInput {
   neck?: number | null;
   chest?: number | null;
   tummy?: number | null;
+  shoulder?: number | null;
   waist?: number | null;
   hip?: number | null;
   thigh?: number | null;
@@ -70,6 +72,7 @@ export const hasAnyMeasurementValue = (measurement: Partial<BodyMeasurementInput
     'neck',
     'chest',
     'tummy',
+    'shoulder',
     'waist',
     'hip',
     'thigh',

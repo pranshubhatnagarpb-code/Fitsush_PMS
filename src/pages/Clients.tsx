@@ -78,6 +78,8 @@ const Clients = () => {
           thigh: initialMeasurement.thigh ?? null,
           arm: initialMeasurement.arm ?? null,
           neck: initialMeasurement.neck ?? null,
+          tummy: initialMeasurement.tummy ?? null,
+          shoulder: initialMeasurement.shoulder ?? null,
           notes: initialMeasurement.notes ?? null,
         });
       }

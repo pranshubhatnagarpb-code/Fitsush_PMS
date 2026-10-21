@@ -19,6 +19,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
+import { parseRecipeDocx } from '@/lib/recipeDocxParser';
 
 type Row = {
   Meal_name: string;
@@ -122,29 +123,43 @@ const MealRecipesImport = () => {
     setResult(null);
   };
 
-  const handleFile = async (file: File) => {
-    setFileName(file.name);
+  const readFile = async (file: File): Promise<Array<Record<string, any>>> => {
     const ext = file.name.split('.').pop()?.toLowerCase();
-    try {
-      if (ext === 'csv') {
+    if (ext === 'csv') {
+      return new Promise((resolve, reject) => {
         Papa.parse(file, {
           header: true,
           skipEmptyLines: true,
-          complete: (res) => processRows(res.data as any[]),
-          error: (err) => toast.error(`CSV parse error: ${err.message}`),
+          complete: (res) => resolve(res.data as any[]),
+          error: (err) => reject(new Error(`CSV parse error: ${err.message}`)),
         });
-      } else if (ext === 'xlsx' || ext === 'xls') {
-        const buf = await file.arrayBuffer();
-        const wb = XLSX.read(buf, { type: 'array' });
-        const sheet = wb.Sheets[wb.SheetNames[0]];
-        const json = XLSX.utils.sheet_to_json<Record<string, any>>(sheet, { defval: '' });
-        processRows(json);
-      } else {
-        toast.error('Unsupported file type. Use CSV or Excel.');
-      }
-    } catch (e: any) {
-      toast.error(`Failed to read file: ${e.message}`);
+      });
     }
+    if (ext === 'xlsx' || ext === 'xls') {
+      const buf = await file.arrayBuffer();
+      const wb = XLSX.read(buf, { type: 'array' });
+      const sheet = wb.Sheets[wb.SheetNames[0]];
+      return XLSX.utils.sheet_to_json<Record<string, any>>(sheet, { defval: '' });
+    }
+    if (ext === 'docx') {
+      const recipes = await parseRecipeDocx(file);
+      if (recipes.length === 0) toast.warning(`No recipes found in ${file.name} (expected an "INGREDIENTS" heading)`);
+      return recipes;
+    }
+    throw new Error(`Unsupported file type: ${file.name}. Use CSV, Excel or Word (.docx).`);
+  };
+
+  const handleFiles = async (files: File[]) => {
+    setFileName(files.map((f) => f.name).join(', '));
+    const all: Array<Record<string, any>> = [];
+    for (const file of files) {
+      try {
+        all.push(...(await readFile(file)));
+      } catch (e: any) {
+        toast.error(`Failed to read ${file.name}: ${e.message}`);
+      }
+    }
+    processRows(all);
   };
 
   const handleImport = async () => {
@@ -307,17 +322,22 @@ const MealRecipesImport = () => {
         <h2 className="text-lg font-semibold mb-3">Bulk Import</h2>
         <div className="space-y-4">
           <div>
-            <Label htmlFor="file">Upload CSV or Excel file</Label>
+            <Label htmlFor="file">Upload CSV, Excel or Word files</Label>
             <p className="text-sm text-muted-foreground mb-2">
-              Required columns: <code>Meal_name</code>, <code>Instructions</code>. Optional: <code>Ingredients</code>, <code>Remarks</code>. The <code>meal_name_normalized</code> field is generated automatically.
+              CSV/Excel — required columns: <code>Meal_name</code>, <code>Instructions</code>. Optional: <code>Ingredients</code>, <code>Remarks</code>. The <code>meal_name_normalized</code> field is generated automatically.
+            </p>
+            <p className="text-sm text-muted-foreground mb-2">
+              Word (.docx) — one or more recipes per file, each as: recipe name, an <code>INGREDIENTS</code> heading, then an <code>INSTRUCTIONS</code> or <code>METHOD</code> heading. Lines like "Storage: …" or "For a milder version: …" go into Remarks. You can select several files at once.
             </p>
             <Input
               id="file"
               type="file"
-              accept=".csv,.xlsx,.xls"
+              multiple
+              accept=".csv,.xlsx,.xls,.docx"
               onChange={(e) => {
-                const f = e.target.files?.[0];
-                if (f) handleFile(f);
+                const files = Array.from(e.target.files ?? []);
+                if (files.length) handleFiles(files);
+                e.target.value = '';
               }}
             />
           </div>
