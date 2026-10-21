@@ -64,6 +64,7 @@ const MealRecipesImport = () => {
   const [fileName, setFileName] = useState('');
   const [rows, setRows] = useState<Row[]>([]);
   const [importing, setImporting] = useState(false);
+  const importingRef = useRef(false);
   const [result, setResult] = useState<{ inserted: number; skipped: number } | null>(null);
 
   const [recipes, setRecipes] = useState<Recipe[]>([]);
@@ -80,23 +81,6 @@ const MealRecipesImport = () => {
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [addOpen, setAddOpen] = useState(false);
-
-  // Supabase caps responses at 1000 rows per request, so page through the table.
-  const fetchAllRecipes = async <T,>(columns: string): Promise<T[]> => {
-    const all: T[] = [];
-    const batchSize = 1000;
-    for (let from = 0; ; from += batchSize) {
-      const { data, error } = await supabase
-        .from('meal_recipes')
-        .select(columns)
-        .order('Meal_name', { ascending: true })
-        .order('id', { ascending: true })
-        .range(from, from + batchSize - 1);
-      if (error) throw error;
-      all.push(...((data || []) as T[]));
-      if (!data || data.length < batchSize) return all;
-    }
-  };
 
   // The list shows at most RECIPE_LIST_LIMIT rows (loading all ~13k makes the page slow);
   // search runs in the database so it still finds any recipe, and the counts are exact.
@@ -208,20 +192,11 @@ const MealRecipesImport = () => {
       toast.error('No valid rows to import');
       return;
     }
+    if (importingRef.current) return; // ignore a double-click while an import is running
+    importingRef.current = true;
     setImporting(true);
     try {
-      const existing = await fetchAllRecipes<{ meal_name_normalized: string }>('meal_name_normalized');
-      const existingSet = new Set(existing.map((e) => e.meal_name_normalized));
-      const toInsert = valid.filter((r) => !existingSet.has(r.meal_name_normalized));
-      const skipped = valid.length - toInsert.length;
-
-      if (toInsert.length === 0) {
-        setResult({ inserted: 0, skipped });
-        toast.info(`All ${skipped} rows already exist. Nothing inserted.`);
-        return;
-      }
-
-      const payload = toInsert.map((r) => ({
+      const payload = valid.map((r) => ({
         Meal_name: r.Meal_name,
         Ingredients: r.Ingredients,
         Instructions: r.Instructions,
@@ -229,12 +204,25 @@ const MealRecipesImport = () => {
         meal_name_normalized: r.meal_name_normalized,
       }));
 
+      // ON CONFLICT DO NOTHING: recipes whose name already exists are skipped by the
+      // database itself, so a duplicate can never fail the import. Only rows actually
+      // inserted come back, which gives the inserted count.
       let inserted = 0;
       for (let i = 0; i < payload.length; i += 500) {
         const chunk = payload.slice(i, i + 500);
-        const { error } = await supabase.from('meal_recipes').insert(chunk);
+        const { data, error } = await supabase
+          .from('meal_recipes')
+          .upsert(chunk, { onConflict: 'meal_name_normalized', ignoreDuplicates: true })
+          .select('id');
         if (error) throw error;
-        inserted += chunk.length;
+        inserted += data?.length ?? 0;
+      }
+      const skipped = valid.length - inserted;
+
+      if (inserted === 0) {
+        setResult({ inserted: 0, skipped });
+        toast.info(`All ${skipped} rows already exist. Nothing inserted.`);
+        return;
       }
 
       setResult({ inserted, skipped });
@@ -243,6 +231,7 @@ const MealRecipesImport = () => {
     } catch (e: any) {
       toast.error(`Import failed: ${e.message}`);
     } finally {
+      importingRef.current = false;
       setImporting(false);
     }
   };

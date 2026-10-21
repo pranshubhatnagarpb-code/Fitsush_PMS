@@ -270,6 +270,7 @@ export function buildDietPlanHtml(
   plan: any,
   recipes: Array<{ Meal_name: string; Ingredients: string; Instructions: string; Remarks: string }> = [],
   affiliateProducts: Array<{ product_name: string; link: string }> = [],
+  logoDataUrl = '',
 ): string {
   const isAI = plan.is_ai_generated && plan.ai_plan_data;
   const clientDetails = {
@@ -510,65 +511,127 @@ export function buildDietPlanHtml(
 </html>`;
   }
 
-  // Structured plan (diet_plan_days)
+  // Manual plan (diet_plan_days) — same look as the AI plan PDF (buildRichAIPlanHtml):
+  // clinic logo, title, client details box, orange meal table, recipes, footer.
   const days = ((plan.diet_plan_days ?? []) as any[]).sort(
     (a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0)
   );
   const mealColumns = planMealColumns(days);
+  const showCalories = days.some((d) => d.total_calories);
+  const healthConditions: string[] = Array.isArray(clientDetails.healthConditions)
+    ? clientDetails.healthConditions
+    : clientDetails.healthConditions ? [String(clientDetails.healthConditions)] : [];
+
+  const fmtDate = (d: Date) =>
+    `${String(d.getDate()).padStart(2, '0')}-${String(d.getMonth() + 1).padStart(2, '0')}-${d.getFullYear()}`;
+  const dateRange = (() => {
+    const startStr = plan.start_date;
+    if (!startStr) return '';
+    const start = new Date(startStr);
+    if (isNaN(start.getTime())) return '';
+    const endDate = plan.end_date ? new Date(plan.end_date) : new Date(start.getTime() + (Math.max(days.length, 1) - 1) * 86400000);
+    return `${fmtDate(start)} to ${fmtDate(endDate)}`;
+  })();
+  const weeks = [...new Set(days.map((d) => /week\s*\d+/i.exec(d.day_label || '')?.[0]).filter(Boolean))] as string[];
+  const weekLabel = weeks.length ? weeks.join(', ') : plan.week_number ? `Week ${plan.week_number}` : '';
 
   return `<!DOCTYPE html>
 <html>
 <head>
-  <title>${plan.plan_name || 'Diet Plan'}</title>
+  <meta charset="utf-8"/>
+  <title>${escapeText(plan.plan_name || 'Diet Plan')}</title>
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: 'Segoe UI', sans-serif; padding: 25px 35px; color: #334155; font-size: 11px; }
-    .header { text-align: center; margin-bottom: 20px; border-bottom: 2px solid #FF4D06; padding-bottom: 15px; }
-    .header h1 { color: #FF4D06; font-size: 18px; }
-    .header p { color: #64748b; font-size: 12px; margin-top: 4px; }
-    table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 10px; }
-    th { background: #FF4D06; color: white; padding: 8px; text-align: left; }
-    td { padding: 8px; border-bottom: 1px solid #e2e8f0; vertical-align: top; }
-    tr:nth-child(even) { background: #f8fafc; }
-    .footer { text-align: center; margin-top: 25px; font-size: 9px; color: #64748b; }
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;padding:25px 35px;color:#333;font-size:11px;line-height:1.4}
+    .header{text-align:center;margin-bottom:25px;border-bottom:2px solid #FF4D06;padding-bottom:15px}
+    .header img{width:80px;height:auto;margin-bottom:10px}
+    .header h1{color:#FF4D06;font-size:20px;margin-bottom:5px}
+    .header p{color:#666;font-size:12px}
+    .week-badge{display:inline-block;background:#FF4D06;color:white;padding:3px 8px;border-radius:12px;font-size:10px;margin-left:10px}
+    .client-details{background:#f0f7ff;border:1px solid #b3d1ff;border-radius:8px;padding:15px;margin-bottom:20px}
+    .client-details h3{color:#1a5fb4;font-size:14px;margin-bottom:10px}
+    .client-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;font-size:10px}
+    .client-grid div{margin-bottom:5px}
+    .client-grid span{font-weight:bold;color:#555}
+    .condition-badge{display:inline-block;background:#e3f2fd;color:#1976d2;padding:2px 6px;border-radius:10px;font-size:9px;margin-right:4px;margin-bottom:4px}
+    .intro{background:#f9f9f9;padding:15px;border-radius:8px;margin-bottom:20px;border-left:4px solid #FF4D06}
+    table{width:100%;border-collapse:collapse;margin-bottom:20px;font-size:10px}
+    th{background:#FF4D06;color:white;padding:8px;text-align:left;font-weight:bold}
+    td{padding:8px;border-bottom:1px solid #ddd;vertical-align:top}
+    tr:nth-child(even){background:#f9f9f9}
+    .section-title{color:#FF4D06;font-size:16px;font-weight:bold;margin:25px 0 15px;border-bottom:1px solid #FED7AA;padding-bottom:5px}
+    .footer{text-align:center;margin-top:30px;padding-top:15px;border-top:1px solid #ddd;font-size:9px;color:#999}
+    @media print{body{padding:15px}}
   </style>
 </head>
 <body>
   <div class="header">
+    ${logoDataUrl ? `<img src="${logoDataUrl}" alt="Fitsush Logo"/>` : ''}
     <h1>${escapeText(plan.plan_name || 'Diet Plan')}</h1>
-    <p>Client: ${escapeText(clientDetails.name)}</p>
-    ${plan.instructions ? `<p style="margin-top:6px;font-style:italic;">${escapeText(plan.instructions)}</p>` : ''}
+    <p>Personalized Diet Plan for ${escapeText(clientDetails.name)}
+      ${weekLabel ? `<span class="week-badge">${escapeText(weekLabel)}</span>` : ''}
+    </p>
   </div>
+
+  <div class="client-details">
+    <h3>📋 Client Details</h3>
+    <div class="client-grid">
+      <div><span>Name:</span> ${escapeText(clientDetails.name)}</div>
+      <div><span>Age:</span> ${clientDetails.age} years</div>
+      <div><span>Gender:</span> ${escapeText(String(clientDetails.gender))}</div>
+      <div><span>Height/Weight:</span> ${clientDetails.height}cm / ${clientDetails.weight}kg</div>
+      <div><span>Skin Type:</span> ${escapeText(String(clientDetails.skinType))}</div>
+      <div><span>Hair Type:</span> ${escapeText(String(clientDetails.hairType))}</div>
+      <div><span>Goal:</span> ${escapeText(String(clientDetails.goal))}</div>
+      <div><span>Diet Preference:</span> ${escapeText(String(clientDetails.dietPreference))}</div>
+      ${dateRange ? `<div><span>Date:</span> ${dateRange}</div>` : ''}
+      <div><span>Duration:</span> ${days.length} ${days.length === 1 ? 'day' : 'days'}</div>
+    </div>
+    ${healthConditions.length > 0 ? `
+    <div style="margin-top:10px">
+      <h4 style="font-size:10px;margin-bottom:5px;color:#555">Health Conditions:</h4>
+      ${healthConditions.map((c) => `<span class="condition-badge">${escapeText(c)}</span>`).join('')}
+    </div>` : ''}
+    ${clientDetails.notes ? `<div style="margin-top:10px;font-size:10px"><strong>Notes:</strong> ${escapeText(clientDetails.notes)}</div>` : ''}
+  </div>
+
+  ${plan.instructions ? `<div class="intro"><p><strong>General Instructions:</strong> ${escapeText(plan.instructions)}</p></div>` : ''}
+
+  <h3 class="section-title">Diet Chart</h3>
   <table>
     <thead>
       <tr>
-        <th>Day</th>${mealColumns.map((l) => `<th>${escapeText(l)}</th>`).join('')}<th>Calories</th><th>Notes</th>
+        <th>Day</th>${mealColumns.map((l) => `<th>${escapeText(l)}</th>`).join('')}${showCalories ? '<th>Calories</th>' : ''}<th>Notes</th>
       </tr>
     </thead>
     <tbody>
       ${days.map((d: any) => `
         <tr>
-          <td>${escapeText(d.day_label)}</td>
+          <td><strong>${escapeText(d.day_label)}</strong></td>
           ${mealColumns.map((l) => `<td>${escapeText(dayMealFor(d, l)) || '-'}</td>`).join('')}
-          <td>${d.total_calories ? `${d.total_calories} kcal` : '-'}</td>
+          ${showCalories ? `<td>${d.total_calories ? `${d.total_calories} kcal` : '-'}</td>` : ''}
           <td>${escapeText(d.notes || '') || '-'}</td>
         </tr>
       `).join('')}
     </tbody>
   </table>
+
   ${recipes.length > 0 ? `
-  <div style="margin-top: 24px;">
-    <h2 style="color: #FF4D06; font-size: 16px; border-bottom: 2px solid #FF4D06; padding-bottom: 6px; margin-bottom: 14px;">Recipes for mentioned meals</h2>
+  <div style="page-break-before:always;margin-top:24px">
+    <h2 style="color:#FF4D06;font-size:18px;border-bottom:2px solid #FF4D06;padding-bottom:6px;margin-bottom:14px">Recipes for mentioned meals</h2>
     ${recipes.map(r => `
-      <div style="margin-bottom: 16px; page-break-inside: avoid;">
-        <h3 style="color: #1a5fb4; font-size: 13px; margin-bottom: 6px;">${escapeText(r.Meal_name)}</h3>
-        ${r.Ingredients ? `<div style="font-size: 11px; line-height: 1.5; color: #333; margin-bottom: 6px;"><strong>Ingredients:</strong><br/>${escapeText(r.Ingredients)}</div>` : ''}
-        <div style="font-size: 11px; line-height: 1.5; color: #333; margin-bottom: 6px;"><strong>Instructions:</strong><br/>${escapeText(r.Instructions)}</div>
-        ${r.Remarks ? `<div style="font-size: 11px; line-height: 1.5; color: #555;"><strong>Remarks:</strong><br/>${escapeText(r.Remarks)}</div>` : ''}
-      </div>
-    `).join('')}
+      <div style="margin-bottom:16px;page-break-inside:avoid">
+        <h3 style="color:#1a5fb4;font-size:13px;margin-bottom:6px">${escapeText(r.Meal_name)}</h3>
+        ${r.Ingredients ? `<div style="font-size:11px;line-height:1.5;color:#333;margin-bottom:6px"><strong>Ingredients:</strong><br/>${escapeText(r.Ingredients)}</div>` : ''}
+        <div style="font-size:11px;line-height:1.5;color:#333;margin-bottom:6px"><strong>Instructions:</strong><br/>${escapeText(r.Instructions)}</div>
+        ${r.Remarks ? `<div style="font-size:11px;line-height:1.5;color:#555"><strong>Remarks:</strong><br/>${escapeText(r.Remarks)}</div>` : ''}
+      </div>`).join('')}
   </div>` : ''}
-  <div class="footer">© ${new Date().getFullYear()} Fitsush - Personalized Nutrition Plan</div>
+
+  <div class="footer">
+    <p>© ${new Date().getFullYear()} Fitsush - Personalized Nutrition Plan</p>
+    <p>This plan is customized based on your specific requirements and health profile.</p>
+  </div>
 </body>
 </html>`;
 }
@@ -805,12 +868,28 @@ function buildRichAIPlanHtml(
 // Opens the plan in a new tab for browser print / Save as PDF
 // ---------------------------------------------------------------------------
 
+async function loadLogoDataUrl(): Promise<string> {
+  try {
+    const res = await fetch('/fitsush-logo.webp');
+    const blob = await res.blob();
+    return await new Promise<string>((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.readAsDataURL(blob);
+    });
+  } catch { return ''; }
+}
+
 export async function openDietPlanForPrint(plan: any): Promise<void> {
   const isAI = plan.is_ai_generated && plan.ai_plan_data;
 
   if (!isAI) {
-    // Non-AI structured plan — use the simple table layout
-    const html = buildDietPlanHtml(plan, await fetchRecipesForManualPlan(plan.diet_plan_days));
+    // Manual plan — same branded layout as the AI plan PDF
+    const [recipes, logoDataUrl] = await Promise.all([
+      fetchRecipesForManualPlan(plan.diet_plan_days),
+      loadLogoDataUrl(),
+    ]);
+    const html = buildDietPlanHtml(plan, recipes, [], logoDataUrl);
     if (!html) return;
     const w = window.open('', '_blank');
     if (w) { w.document.write(html); w.document.close(); w.print(); }
@@ -870,7 +949,9 @@ export async function openDietPlanForPrint(plan: any): Promise<void> {
 
 export async function generateDietPlanPdfBlob(plan: any): Promise<Blob | null> {
   const isAI = plan.is_ai_generated && plan.ai_plan_data;
-  const html = buildDietPlanHtml(plan, isAI ? [] : await fetchRecipesForManualPlan(plan.diet_plan_days));
+  const html = isAI
+    ? buildDietPlanHtml(plan)
+    : buildDietPlanHtml(plan, await fetchRecipesForManualPlan(plan.diet_plan_days), [], await loadLogoDataUrl());
   if (!html) return null;
 
   const container = document.createElement('div');
