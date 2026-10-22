@@ -1747,7 +1747,7 @@ export const AIDietPlanGenerator = ({ clients, editModeData, onClose }: Props) =
     .intro { background: #f9f9f9; padding: 15px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #FF4D06; }
     .intro p { margin: 0; font-style: italic; }
     .section-title { color: #FF4D06; font-size: 16px; font-weight: bold; margin: 25px 0 15px 0; border-bottom: 1px solid #FED7AA; padding-bottom: 5px; }
-    table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 10px; }
+    table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 12px; line-height: 1.45; }
     th { background: #FF4D06; color: white; padding: 8px; text-align: left; font-weight: bold; }
     td { padding: 8px; border-bottom: 1px solid #ddd; vertical-align: top; }
     tr:nth-child(even) { background: #f9f9f9; }
