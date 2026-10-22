@@ -12,6 +12,7 @@ import {
   useDeleteBodyMeasurement,
 } from '@/hooks/useBodyMeasurements';
 import { BodyMeasurementFormDialog } from '@/components/body-measurements/BodyMeasurementFormDialog';
+import { InchLossCell, formatInchLoss } from '@/components/body-measurements/InchLoss';
 
 interface Props {
   clientId: string;
@@ -32,7 +33,17 @@ export const ClientBodyMeasurementsPanel = ({ clientId, clientName }: Props) => 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="font-semibold text-foreground">Body Measurements — {clientName}</h3>
+        <div>
+          <h3 className="font-semibold text-foreground">Body Measurements — {clientName}</h3>
+          {measurements[0]?.inch_loss_total != null && (
+            <p className="text-sm text-muted-foreground">
+              Total inch loss since first entry:{' '}
+              <span className={measurements[0].inch_loss_total > 0 ? 'font-semibold text-success' : measurements[0].inch_loss_total < 0 ? 'font-semibold text-destructive' : 'font-semibold'}>
+                {formatInchLoss(measurements[0].inch_loss_total)}
+              </span>
+            </p>
+          )}
+        </div>
         <Button size="sm" onClick={() => setDialogOpen(true)}>
           <Plus className="h-4 w-4 mr-1" /> Add Measurement
         </Button>
@@ -61,6 +72,9 @@ export const ClientBodyMeasurementsPanel = ({ clientId, clientName }: Props) => 
                 <TableHead>Arm</TableHead>
                 <TableHead>Thigh</TableHead>
                 <TableHead>Neck</TableHead>
+                <TableHead>Shoulder</TableHead>
+                <TableHead>Tummy</TableHead>
+                <TableHead>Inch Loss</TableHead>
                 <TableHead>Notes</TableHead>
                 <TableHead></TableHead>
               </TableRow>
@@ -80,6 +94,9 @@ export const ClientBodyMeasurementsPanel = ({ clientId, clientName }: Props) => 
                   <TableCell>{m.arm ?? '-'}</TableCell>
                   <TableCell>{m.thigh ?? '-'}</TableCell>
                   <TableCell>{m.neck ?? '-'}</TableCell>
+                  <TableCell>{m.shoulder ?? '-'}</TableCell>
+                  <TableCell>{m.tummy ?? '-'}</TableCell>
+                  <TableCell><InchLossCell total={m.inch_loss_total} change={m.inch_loss_change} /></TableCell>
                   <TableCell className="max-w-[160px] truncate">{m.notes ?? '-'}</TableCell>
                   <TableCell>
                     <Button

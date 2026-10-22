@@ -1,872 +1,61 @@
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import { supabase } from '@/integrations/supabase/client';
+import {
+  buildPlanHtml,
+  aiRecipeCandidates,
+  matchAiRecipeNames,
+  manualRecipeKeys,
+  matchAffiliateProducts,
+  type RecipeRow,
+  type AffiliateProduct,
+  type AffiliateProductRow,
+} from '@/lib/dietPlanHtml';
 
-// ---------------------------------------------------------------------------
-// Recipe matching helpers (mirrors AIDietPlanGenerator logic)
-// ---------------------------------------------------------------------------
+// Layout lives in dietPlanHtml.ts (shared byte-for-byte with the client PWA);
+// this file only loads the data it needs and prints / renders it.
+export { dayMealText, dayMeals, planMealColumns, dayMealOptionsFor, countPlanDays, planSupplements, buildPlanHtml } from '@/lib/dietPlanHtml';
 
-function normalizeMealName(s: string): string {
-  return (s || '').replace(/['"]/g, '').toLowerCase().replace(/[^a-z0-9\s]+/g, ' ').replace(/\s+/g, ' ').trim();
-}
+const RECIPE_COLUMNS = 'Meal_name, Ingredients, Instructions, Remarks';
 
-function toWordSet(normalized: string): Set<string> {
-  return new Set(normalized.split(' ').filter(w => w.length >= 2));
-}
-
-async function fetchRecipesForAIPlan(
-  aiData: any,
-): Promise<Array<{ Meal_name: string; Ingredients: string; Instructions: string; Remarks: string }>> {
-  const raw: string[] = [];
-  ((aiData.dayGroups ?? []) as any[]).forEach((dg: any) => {
-    ((dg.meals ?? []) as any[]).forEach((m: any) => {
-      [m.foodPlan, m.alternative].forEach((text: string) => {
-        if (!text) return;
-        text.split(/\n|,|;|\/|\+|\bor\b|\band\b|\bwith\b/i).forEach((piece: string) => {
-          const cleaned = piece
-            .replace(/\(.*?\)/g, '')
-            .replace(/\d+\s*(g|ml|gm|kg|tsp|tbsp|cup|cups|pcs|piece|pieces|bowl|glass)\b/gi, '')
-            .trim();
-          if (cleaned.length >= 3) raw.push(cleaned);
-        });
-      });
-    });
-  });
-
-  const seen = new Set<string>();
-  const candidates: string[] = [];
-  raw.forEach(r => {
-    const n = normalizeMealName(r);
-    if (n && !seen.has(n)) { seen.add(n); candidates.push(n); }
-  });
-
-  if (candidates.length === 0) return [];
-
-  // Paginate because Supabase caps responses at 1000 rows per request
-  type RecipeRow = { Meal_name: string; Ingredients: string; Instructions: string; Remarks: string };
-  const allData: RecipeRow[] = [];
+// Supabase caps responses at 1000 rows per request, so page through the table.
+async function fetchAllRows<T>(table: string, columns: string): Promise<T[]> {
+  const all: T[] = [];
   const batchSize = 1000;
-  let from = 0;
-  while (true) {
-    const { data, error } = await supabase
-      .from('meal_recipes')
-      .select('Meal_name, Ingredients, Instructions, Remarks')
+  for (let from = 0; ; from += batchSize) {
+    const { data, error } = await (supabase.from(table as any) as any)
+      .select(columns)
       .range(from, from + batchSize - 1);
-    if (error || !data || data.length === 0) break;
-    allData.push(...(data as RecipeRow[]));
-    if (data.length < batchSize) break;
-    from += batchSize;
+    if (error || !data) return all;
+    all.push(...(data as T[]));
+    if (data.length < batchSize) return all;
   }
-  if (allData.length === 0) return [];
-
-  const matched = new Set<string>();
-  const out: RecipeRow[] = [];
-  candidates.forEach(candidate => {
-    const candidateWords = toWordSet(candidate);
-    const match = allData.find(r => {
-      const recipeWords = toWordSet(normalizeMealName(r.Meal_name));
-      if (recipeWords.size === 0) return false;
-      return [...recipeWords].every(w => candidateWords.has(w)) ||
-             [...candidateWords].every(w => recipeWords.has(w));
-    });
-    if (match && !matched.has(match.Meal_name)) {
-      matched.add(match.Meal_name);
-      out.push({
-        Meal_name: match.Meal_name,
-        Ingredients: match.Ingredients || '',
-        Instructions: match.Instructions || '',
-        Remarks: match.Remarks || '',
-      });
-    }
-  });
-  return out;
 }
 
-// ---------------------------------------------------------------------------
-// Affiliate product matching — grocery list + meal items, word-based fuzzy
-// ---------------------------------------------------------------------------
-
-const AFFILIATE_STOP_WORDS = new Set([
-  'the', 'a', 'an', 'of', 'in', 'for', 'with', 'and', 'or', 'to', 'is',
-  'at', 'by', 'on', 'as', 'up', 'it', 'its',
-]);
-
-function getSignificantWords(s: string): Set<string> {
-  return new Set(
-    (s || '').toLowerCase()
-      .split(/[^a-z0-9]+/)
-      .filter(w => w.length >= 3 && !AFFILIATE_STOP_WORDS.has(w)),
-  );
-}
-
-function cleanIngredientText(s: string): string {
-  return s
-    .replace(/\(.*?\)/g, '')
-    .replace(/\d+\s*(g|ml|gm|kg|l|tsp|tbsp|cup|cups|pcs|piece|pieces|jar|jars|bottle|bottles|pack|packs|sachet|sachets|bowl|glass)\b/gi, '')
-    .trim();
-}
-
-export async function fetchAffiliateProductsForPlan(
-  aiData: any,
-): Promise<Array<{ product_name: string; link: string }>> {
-  // Collect candidate strings from BOTH grocery list and meal items
-  const candidates: string[] = [];
-
-  // 1. Weekly grocery list items
-  ((aiData.weeklyGroceryList ?? []) as any[]).forEach((cat: any) => {
-    ((cat.items ?? []) as string[]).forEach((item) => {
-      const cleaned = cleanIngredientText(item);
-      if (cleaned.length >= 2) candidates.push(cleaned);
-    });
-  });
-
-  // 2. Meal food items (foodPlan + alternative) — same splitting as recipe matching
-  ((aiData.dayGroups ?? []) as any[]).forEach((dg: any) => {
-    ((dg.meals ?? []) as any[]).forEach((m: any) => {
-      [m.foodPlan, m.alternative].forEach((text: string) => {
-        if (!text) return;
-        text.split(/\n|,|;|\/|\+|\bor\b|\band\b|\bwith\b/i).forEach((piece: string) => {
-          const cleaned = cleanIngredientText(piece);
-          if (cleaned.length >= 3) candidates.push(cleaned);
-        });
-      });
-    });
-  });
-
+// AI plans: match on names only (small download), then fetch the full recipes that matched.
+async function fetchRecipesForAIPlan(aiData: any): Promise<RecipeRow[]> {
+  const candidates = aiRecipeCandidates(aiData);
   if (candidates.length === 0) return [];
-
-  type ProductRow = { product_name: string; link: string; product_name_normalized: string };
-  const allData: ProductRow[] = [];
-  const batchSize = 1000;
-  let from = 0;
-  while (true) {
-    const { data, error } = await supabase
-      .from('affiliate_products')
-      .select('product_name, link, product_name_normalized')
-      .range(from, from + batchSize - 1);
-    if (error || !data || data.length === 0) break;
-    allData.push(...(data as ProductRow[]));
-    if (data.length < batchSize) break;
-    from += batchSize;
-  }
-  if (allData.length === 0) return [];
-
-  const normStr = (s: string) => (s || '').toLowerCase().replace(/[^a-z0-9]+/g, '');
-
-  const matched: Array<{ product_name: string; link: string }> = [];
-  const seen = new Set<string>();
-
-  allData.forEach((p) => {
-    if (seen.has(p.product_name_normalized)) return;
-    const productWords = getSignificantWords(p.product_name);
-    const productNorm = p.product_name_normalized;
-
-    const isMatch = candidates.some((candidate) => {
-      const candidateNorm = normStr(candidate);
-      // Exact / substring match (fast path)
-      if (candidateNorm === productNorm || candidateNorm.includes(productNorm) || productNorm.includes(candidateNorm)) {
-        return true;
-      }
-      // Word-based: ALL significant words from the candidate appear in the product name.
-      // e.g. "Pahari turmeric" words ["pahari","turmeric"] all found in
-      // "Pahari Roots Lakadong Gold Turmeric" words → match.
-      const candidateWords = getSignificantWords(candidate);
-      if (candidateWords.size >= 1) {
-        return [...candidateWords].every(w => productWords.has(w));
-      }
-      return false;
-    });
-
-    if (isMatch) {
-      seen.add(productNorm);
-      matched.push({ product_name: p.product_name, link: p.link });
-    }
-  });
-
-  return matched;
+  const names = await fetchAllRows<{ Meal_name: string }>('meal_recipes', 'Meal_name');
+  const matched = matchAiRecipeNames(candidates, names.map((r) => r.Meal_name));
+  if (matched.length === 0) return [];
+  const { data } = await supabase.from('meal_recipes').select(RECIPE_COLUMNS).in('Meal_name', matched);
+  const byName = new Map(((data ?? []) as RecipeRow[]).map((r) => [r.Meal_name, r]));
+  return matched.flatMap((n) => (byName.has(n) ? [byName.get(n)!] : []));
 }
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function calculateAge(dateOfBirth: string): number | string {
-  const birthDate = new Date(dateOfBirth);
-  const today = new Date();
-  let age = today.getFullYear() - birthDate.getFullYear();
-  const monthDiff = today.getMonth() - birthDate.getMonth();
-  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) age--;
-  return age;
-}
-
-type RecipeRow = { Meal_name: string; Ingredients: string; Instructions: string; Remarks: string };
-
-const MEAL_KEYS = ['breakfast', 'lunch', 'snacks', 'dinner'] as const;
-
-// A manual-planner day's meal as written: the saved text (recipe name / typed meal),
-// falling back to the diet_options name for rows saved before *_text existed.
-export function dayMealText(day: any, meal: (typeof MEAL_KEYS)[number]): string {
-  return (day?.[`${meal}_text`] || day?.[`${meal}_option`]?.name || '').trim();
-}
-
-// Every meal of a manual-planner day, in chart order. Days saved with the
-// `meals` list can have any meal times; older days only have the four columns.
-export function dayMeals(day: any): Array<{ label: string; text: string }> {
-  if (Array.isArray(day?.meals) && day.meals.length > 0) {
-    return day.meals.map((m: any) => ({ label: String(m?.label ?? '').trim(), text: String(m?.text ?? '').trim() }));
-  }
-  return MEAL_KEYS.map((m) => ({ label: m[0].toUpperCase() + m.slice(1), text: dayMealText(day, m) }));
-}
-
-// Column headings for a plan's table: meal times in first-seen order, dropping
-// any meal time that's empty on every day.
-export function planMealColumns(days: any[]): string[] {
-  const order: string[] = [];
-  const used = new Set<string>();
-  (days ?? []).forEach((d) => dayMeals(d).forEach(({ label, text }) => {
-    const k = label.toLowerCase();
-    if (!order.some((l) => l.toLowerCase() === k)) order.push(label);
-    if (text) used.add(k);
-  }));
-  return order.filter((l) => used.has(l.toLowerCase()));
-}
-
-export function dayMealFor(day: any, label: string): string {
-  return dayMeals(day).find((m) => m.label.toLowerCase() === label.toLowerCase())?.text ?? '';
-}
-
-function escapeText(str: string): string {
-  return (str || '')
-    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
-    .replace(/\n/g, '<br/>');
-}
-
-// Recipes whose name exactly matches a meal in a manual plan (same
-// normalisation as meal_recipes.meal_name_normalized).
+// Manual plans: recipes whose name exactly matches a meal in the plan.
 async function fetchRecipesForManualPlan(days: any[]): Promise<RecipeRow[]> {
-  const names = new Set<string>();
-  (days ?? []).forEach((d) => dayMeals(d).forEach(({ text }) => {
-    const n = text.toLowerCase().replace(/[^a-z0-9]+/g, '');
-    if (n) names.add(n);
-  }));
-  if (names.size === 0) return [];
-  const { data, error } = await supabase
-    .from('meal_recipes')
-    .select('Meal_name, Ingredients, Instructions, Remarks')
-    .in('meal_name_normalized', [...names]);
-  if (error || !data) return [];
-  return data as RecipeRow[];
+  const keys = manualRecipeKeys(days);
+  if (keys.length === 0) return [];
+  const { data, error } = await supabase.from('meal_recipes').select(RECIPE_COLUMNS).in('meal_name_normalized', keys);
+  return error || !data ? [] : (data as RecipeRow[]);
 }
 
-function escapeHtml(str: string): string {
-  return str.replace(/\n/g, '<br/>');
+export async function fetchAffiliateProductsForPlan(aiData: any): Promise<AffiliateProduct[]> {
+  const products = await fetchAllRows<AffiliateProductRow>('affiliate_products', 'product_name, link, product_name_normalized');
+  return matchAffiliateProducts(aiData, products);
 }
-
-// ---------------------------------------------------------------------------
-// HTML builder — shared by both download and auto-publish PDF flows
-// ---------------------------------------------------------------------------
-
-export function buildDietPlanHtml(
-  plan: any,
-  recipes: Array<{ Meal_name: string; Ingredients: string; Instructions: string; Remarks: string }> = [],
-  affiliateProducts: Array<{ product_name: string; link: string }> = [],
-  logoDataUrl = '',
-): string {
-  const isAI = plan.is_ai_generated && plan.ai_plan_data;
-  const clientDetails = {
-    name: plan.clients?.name || 'Client',
-    age: plan.clients?.date_of_birth ? calculateAge(plan.clients.date_of_birth) : '--',
-    gender: plan.clients?.gender || 'Not specified',
-    height: plan.clients?.height || '--',
-    weight: plan.clients?.weight || '--',
-    skinType: plan.clients?.skin_type || 'Not specified',
-    hairType: plan.clients?.hair_type || 'Not specified',
-    goal: plan.clients?.goal || 'Not specified',
-    dietPreference: plan.clients?.diet_preference || 'Not specified',
-    healthConditions: (plan.clients?.health_conditions as string[]) || [],
-    notes: plan.clients?.notes || '',
-  };
-
-  if (isAI) {
-    const aiData = plan.ai_plan_data as any;
-
-    return `<!DOCTYPE html>
-<html>
-<head>
-  <title>${aiData.planName}</title>
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 25px 35px; color: #334155; font-size: 11px; line-height: 1.4; }
-    .header { text-align: center; margin-bottom: 25px; border-bottom: 2px solid #FF4D06; padding-bottom: 15px; }
-    .header h1 { color: #FF4D06; font-size: 20px; margin-bottom: 5px; }
-    .header p { color: #64748b; font-size: 12px; }
-    .week-badge { display: inline-block; background: #FF4D06; color: white; padding: 3px 8px; border-radius: 12px; font-size: 10px; margin-left: 10px; }
-    .client-details { background: #FFF7ED; border: 1px solid #FED7AA; border-radius: 8px; padding: 15px; margin-bottom: 20px; }
-    .client-details h3 { color: #C2410C; font-size: 14px; margin-bottom: 10px; }
-    .client-details-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
-    .client-details-grid span { font-weight: bold; color: #475569; }
-    .health-conditions { margin-top: 10px; }
-    .health-conditions h4 { font-size: 10px; margin-bottom: 5px; color: #475569; }
-    .condition-badge { display: inline-block; background: #e3f2fd; color: #1976d2; padding: 2px 6px; border-radius: 10px; font-size: 9px; margin-right: 4px; margin-bottom: 4px; }
-    .client-notes { margin-top: 10px; }
-    .client-notes h4 { font-size: 10px; margin-bottom: 5px; color: #475569; }
-    .intro { background: #FFF7ED; padding: 15px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #FF4D06; }
-    .intro p { margin: 0; font-style: italic; }
-    .section-title { color: #FF4D06; font-size: 16px; font-weight: bold; margin: 25px 0 15px 0; border-bottom: 1px solid #FED7AA; padding-bottom: 5px; }
-    table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 10px; }
-    th { background: #FF4D06; color: white; padding: 8px; text-align: left; font-weight: bold; }
-    td { padding: 8px; border-bottom: 1px solid #e2e8f0; vertical-align: top; }
-    tr:nth-child(even) { background: #f8fafc; }
-    .affirmations { background: #FFF7ED; padding: 15px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #FF4D06; }
-    .affirmations h3 { color: #FF4D06; font-size: 14px; margin-bottom: 10px; }
-    .affirmations ul { margin-left: 20px; }
-    .affirmations li { margin-bottom: 5px; }
-    .important-notes { background: #fefce8; border: 1px solid #fde047; border-radius: 5px; padding: 15px; margin-bottom: 20px; }
-    .important-notes h4 { color: #a16207; font-size: 12px; margin-bottom: 10px; }
-    .important-notes ul { margin-left: 15px; }
-    .important-notes li { margin-bottom: 5px; font-size: 10px; }
-    .tips-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 20px; }
-    .tip-card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 5px; padding: 10px; }
-    .tip-card h4 { font-size: 11px; margin-bottom: 5px; color: #334155; }
-    .tip-card p { font-size: 9px; margin: 0; }
-    .footer { text-align: center; margin-top: 30px; padding-top: 15px; border-top: 1px solid #e2e8f0; font-size: 9px; color: #64748b; }
-    @media print { body { padding: 15px; } .header { margin-bottom: 15px; } .section-title { margin: 20px 0 10px 0; } }
-  </style>
-</head>
-<body>
-  <div class="header">
-    <h1>${aiData.planName}</h1>
-    <p>Personalized Diet Plan for ${clientDetails.name}
-      <span class="week-badge">Week ${plan.week_number || '--'}</span>
-    </p>
-  </div>
-
-  <div class="client-details">
-    <h3>📋 Client Details</h3>
-    <div class="client-details-grid">
-      <div><span>Name:</span> ${clientDetails.name}</div>
-      <div><span>Age:</span> ${clientDetails.age} years</div>
-      <div><span>Gender:</span> ${clientDetails.gender}</div>
-      <div><span>Height/Weight:</span> ${clientDetails.height}cm / ${clientDetails.weight}kg</div>
-      <div><span>Skin Type:</span> ${clientDetails.skinType}</div>
-      <div><span>Hair Type:</span> ${clientDetails.hairType}</div>
-      <div><span>Goal:</span> ${clientDetails.goal}</div>
-      <div><span>Diet Preference:</span> ${clientDetails.dietPreference}</div>
-    </div>
-    ${clientDetails.healthConditions.length > 0 ? `
-    <div class="health-conditions">
-      <h4>Health Conditions:</h4>
-      ${clientDetails.healthConditions.map((c: string) => `<span class="condition-badge">${c}</span>`).join('')}
-    </div>` : ''}
-    ${clientDetails.notes ? `
-    <div class="client-notes">
-      <h4>Notes:</h4>
-      <p>${clientDetails.notes}</p>
-    </div>` : ''}
-  </div>
-
-  <div class="intro">
-    <p>${escapeHtml(aiData.introMessage || '')}</p>
-  </div>
-
-  ${(aiData.affirmations?.length ?? 0) > 0 ? `
-  <div class="affirmations">
-    <h3>Positive Affirmations for ${clientDetails.name}:</h3>
-    <ul>
-      ${(aiData.affirmations as string[]).map((a) => `<li>${a}</li>`).join('')}
-    </ul>
-  </div>` : ''}
-
-  ${(aiData.dayGroups ?? []).map((group: any) => `
-    <h3 class="section-title">📅 ${group.label}${group.dates ? ` <span style="font-size:12px;color:#666;font-weight:normal;">(${group.dates})</span>` : ''}</h3>
-    <table>
-      <thead>
-        <tr>
-          <th style="width:13%;">Period</th>
-          <th style="width:8%;">Time</th>
-          <th style="width:32%;">Food Plan</th>
-          <th style="width:28%;">Alternative</th>
-          <th style="width:14%;">Notes</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${(group.meals ?? []).map((meal: any) => `
-          <tr>
-            <td>${meal.period || '-'}</td>
-            <td>${meal.time || '-'}</td>
-            <td>${meal.foodPlan || '-'}</td>
-            <td>${meal.alternative || '-'}</td>
-            <td>${meal.notes || '-'}</td>
-          </tr>
-        `).join('')}
-      </tbody>
-    </table>
-  `).join('')}
-
-  <h3 class="section-title">Additional Guidelines</h3>
-
-  <div class="important-notes" style="background:#f8f9fa;border:1px solid #dee2e6;border-radius:5px;padding:15px;margin-bottom:20px;">
-    <strong>Serving Size:</strong> ${aiData.servingSize || '1 bowl is 250ml, 1 cup 150ml, 1 katori 100ml'}
-  </div>
-
-  ${aiData.oilGuidelines ? `
-  <div>
-    <h4 style="font-size:11px;color:#333;margin-bottom:6px;">Use of Oils:</h4>
-    <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:15px;">
-      <div style="background:#f8f9fa;border:1px solid #dee2e6;border-radius:5px;padding:10px;">
-        <h4 style="font-size:10px;margin-bottom:5px;">Cooking - Group A</h4>
-        <ul style="list-style:none;padding:0;margin:0;font-size:9px;">${((aiData.oilGuidelines.cooking?.groupA ?? []) as string[]).map((o) => `<li>- ${o}</li>`).join('')}</ul>
-      </div>
-      <div style="background:#f8f9fa;border:1px solid #dee2e6;border-radius:5px;padding:10px;">
-        <h4 style="font-size:10px;margin-bottom:5px;">Cooking - Group B</h4>
-        <ul style="list-style:none;padding:0;margin:0;font-size:9px;">${((aiData.oilGuidelines.cooking?.groupB ?? []) as string[]).map((o) => `<li>- ${o}</li>`).join('')}</ul>
-      </div>
-      <div style="background:#f8f9fa;border:1px solid #dee2e6;border-radius:5px;padding:10px;">
-        <h4 style="font-size:10px;margin-bottom:5px;">Raw/Topping</h4>
-        <ul style="list-style:none;padding:0;margin:0;font-size:9px;">${((aiData.oilGuidelines.raw ?? []) as string[]).map((o) => `<li>- ${o}</li>`).join('')}</ul>
-      </div>
-      <div style="background:#f8f9fa;border:1px solid #dee2e6;border-radius:5px;padding:10px;">
-        <h4 style="font-size:10px;margin-bottom:5px;">Deep Frying</h4>
-        <ul style="list-style:none;padding:0;margin:0;font-size:9px;">${((aiData.oilGuidelines.deepFrying ?? []) as string[]).map((o) => `<li>- ${o}</li>`).join('')}</ul>
-      </div>
-    </div>
-    <p style="font-size:9px;color:#666;font-style:italic;margin:0;">${aiData.oilGuidelines.note || ''}</p>
-  </div>` : ''}
-
-  ${(aiData.importantNotes?.length ?? 0) > 0 ? `
-  <div class="important-notes">
-    <h4>⚠️ Important Notes:</h4>
-    <ul>
-      ${(aiData.importantNotes as string[]).map((n) => `<li>${n}</li>`).join('')}
-    </ul>
-  </div>` : ''}
-
-  <div class="tips-grid">
-    ${aiData.skinCareTips ? `<div class="tip-card"><h4>🌸 Skin Care Tips</h4><p>${aiData.skinCareTips}</p></div>` : ''}
-    ${aiData.hairCareTips ? `<div class="tip-card"><h4>💇 Hair Care Tips</h4><p>${aiData.hairCareTips}</p></div>` : ''}
-    ${aiData.healthNotes ? `<div class="tip-card"><h4>🏥 Health Notes</h4><p>${aiData.healthNotes}</p></div>` : ''}
-    <div class="tip-card"><h4>💊 Recommended Supplements</h4><p>${aiData.supplements || 'No supplements specified'}</p></div>
-  </div>
-
-  ${(aiData.weeklyGroceryList?.length ?? 0) > 0 ? `
-  <div class="important-notes" style="background:#f0f7ff;border:1px solid #b3d1ff;border-radius:8px;padding:15px;margin-bottom:20px;">
-    <h4 style="color:#1a5fb4;font-size:14px;margin-bottom:10px;">🛍️ Weekly Grocery List</h4>
-    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;">
-      ${(aiData.weeklyGroceryList as any[]).map((cat) => `
-        <div style="background:white;border:1px solid #dee2e6;border-radius:5px;padding:10px;">
-          <h4 style="font-size:11px;margin-bottom:5px;color:#1a5fb4;">${cat.category}</h4>
-          <ul style="margin:0;padding-left:15px;font-size:9px;">
-            ${(cat.items as string[]).map((item) => `<li>${item}</li>`).join('')}
-          </ul>
-        </div>
-      `).join('')}
-    </div>
-  </div>` : ''}
-
-  ${aiData.disclaimer ? `
-  <div class="important-notes">
-    <p><strong>Disclaimer:</strong> ${aiData.disclaimer}</p>
-  </div>` : ''}
-
-  ${recipes.length > 0 ? `
-  <div style="page-break-before: always; margin-top: 24px;">
-    <h2 style="color: #FF4D06; font-size: 18px; border-bottom: 2px solid #FF4D06; padding-bottom: 6px; margin-bottom: 14px;">Recipes for mentioned meals</h2>
-    ${recipes.map(r => `
-      <div style="margin-bottom: 16px; page-break-inside: avoid;">
-        <h3 style="color: #1a5fb4; font-size: 13px; margin-bottom: 6px;">${r.Meal_name}</h3>
-        ${r.Ingredients ? `<div style="font-size: 11px; line-height: 1.5; color: #333; margin-bottom: 6px;"><strong>Ingredients:</strong><br/><span style="white-space: pre-wrap;">${r.Ingredients}</span></div>` : ''}
-        <div style="font-size: 11px; line-height: 1.5; color: #333; margin-bottom: 6px;"><strong>Instructions:</strong><br/><span style="white-space: pre-wrap;">${r.Instructions}</span></div>
-        ${r.Remarks ? `<div style="font-size: 11px; line-height: 1.5; color: #555;"><strong>Remarks:</strong><br/><span style="white-space: pre-wrap;">${r.Remarks}</span></div>` : ''}
-      </div>
-    `).join('')}
-  </div>` : ''}
-
-  ${affiliateProducts.length > 0 ? `
-  <div style="margin-top: 24px; page-break-inside: avoid;">
-    <h2 style="color: #b45309; font-size: 16px; border-bottom: 2px solid #f59e0b; padding-bottom: 6px; margin-bottom: 12px;">🛒 Shop Recommended Products</h2>
-    <table style="width:100%;border-collapse:collapse;font-size:11px;">
-      <thead>
-        <tr>
-          <th style="background:#f59e0b;color:white;padding:7px 10px;text-align:left;width:40%;">Product</th>
-          <th style="background:#f59e0b;color:white;padding:7px 10px;text-align:left;">Buy Link</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${affiliateProducts.map((p, i) => `
-          <tr style="background:${i % 2 === 0 ? '#fffbeb' : '#ffffff'};">
-            <td style="padding:7px 10px;border-bottom:1px solid #fde68a;font-weight:500;">${p.product_name}</td>
-            <td style="padding:7px 10px;border-bottom:1px solid #fde68a;">
-              <a href="${p.link}" style="color:#b45309;text-decoration:underline;word-break:break-all;">${p.link}</a>
-            </td>
-          </tr>
-        `).join('')}
-      </tbody>
-    </table>
-  </div>` : ''}
-
-  <div class="footer">
-    <p>© ${new Date().getFullYear()} Fitsush - Personalized Nutrition Plan</p>
-  </div>
-</body>
-</html>`;
-  }
-
-  // Manual plan (diet_plan_days) — same look as the AI plan PDF (buildRichAIPlanHtml):
-  // clinic logo, title, client details box, orange meal table, recipes, footer.
-  const days = ((plan.diet_plan_days ?? []) as any[]).sort(
-    (a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0)
-  );
-  const mealColumns = planMealColumns(days);
-  const showCalories = days.some((d) => d.total_calories);
-  const healthConditions: string[] = Array.isArray(clientDetails.healthConditions)
-    ? clientDetails.healthConditions
-    : clientDetails.healthConditions ? [String(clientDetails.healthConditions)] : [];
-
-  const fmtDate = (d: Date) =>
-    `${String(d.getDate()).padStart(2, '0')}-${String(d.getMonth() + 1).padStart(2, '0')}-${d.getFullYear()}`;
-  const dateRange = (() => {
-    const startStr = plan.start_date;
-    if (!startStr) return '';
-    const start = new Date(startStr);
-    if (isNaN(start.getTime())) return '';
-    const endDate = plan.end_date ? new Date(plan.end_date) : new Date(start.getTime() + (Math.max(days.length, 1) - 1) * 86400000);
-    return `${fmtDate(start)} to ${fmtDate(endDate)}`;
-  })();
-  const weeks = [...new Set(days.map((d) => /week\s*\d+/i.exec(d.day_label || '')?.[0]).filter(Boolean))] as string[];
-  const weekLabel = weeks.length ? weeks.join(', ') : plan.week_number ? `Week ${plan.week_number}` : '';
-
-  return `<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8"/>
-  <title>${escapeText(plan.plan_name || 'Diet Plan')}</title>
-  <style>
-    *{margin:0;padding:0;box-sizing:border-box}
-    body{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;padding:25px 35px;color:#333;font-size:11px;line-height:1.4}
-    .header{text-align:center;margin-bottom:25px;border-bottom:2px solid #FF4D06;padding-bottom:15px}
-    .header img{width:80px;height:auto;margin-bottom:10px}
-    .header h1{color:#FF4D06;font-size:20px;margin-bottom:5px}
-    .header p{color:#666;font-size:12px}
-    .week-badge{display:inline-block;background:#FF4D06;color:white;padding:3px 8px;border-radius:12px;font-size:10px;margin-left:10px}
-    .client-details{background:#f0f7ff;border:1px solid #b3d1ff;border-radius:8px;padding:15px;margin-bottom:20px}
-    .client-details h3{color:#1a5fb4;font-size:14px;margin-bottom:10px}
-    .client-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;font-size:10px}
-    .client-grid div{margin-bottom:5px}
-    .client-grid span{font-weight:bold;color:#555}
-    .condition-badge{display:inline-block;background:#e3f2fd;color:#1976d2;padding:2px 6px;border-radius:10px;font-size:9px;margin-right:4px;margin-bottom:4px}
-    .intro{background:#f9f9f9;padding:15px;border-radius:8px;margin-bottom:20px;border-left:4px solid #FF4D06}
-    table{width:100%;border-collapse:collapse;margin-bottom:20px;font-size:10px}
-    th{background:#FF4D06;color:white;padding:8px;text-align:left;font-weight:bold}
-    td{padding:8px;border-bottom:1px solid #ddd;vertical-align:top}
-    tr:nth-child(even){background:#f9f9f9}
-    .section-title{color:#FF4D06;font-size:16px;font-weight:bold;margin:25px 0 15px;border-bottom:1px solid #FED7AA;padding-bottom:5px}
-    .footer{text-align:center;margin-top:30px;padding-top:15px;border-top:1px solid #ddd;font-size:9px;color:#999}
-    @media print{body{padding:15px}}
-  </style>
-</head>
-<body>
-  <div class="header">
-    ${logoDataUrl ? `<img src="${logoDataUrl}" alt="Fitsush Logo"/>` : ''}
-    <h1>${escapeText(plan.plan_name || 'Diet Plan')}</h1>
-    <p>Personalized Diet Plan for ${escapeText(clientDetails.name)}
-      ${weekLabel ? `<span class="week-badge">${escapeText(weekLabel)}</span>` : ''}
-    </p>
-  </div>
-
-  <div class="client-details">
-    <h3>📋 Client Details</h3>
-    <div class="client-grid">
-      <div><span>Name:</span> ${escapeText(clientDetails.name)}</div>
-      <div><span>Age:</span> ${clientDetails.age} years</div>
-      <div><span>Gender:</span> ${escapeText(String(clientDetails.gender))}</div>
-      <div><span>Height/Weight:</span> ${clientDetails.height}cm / ${clientDetails.weight}kg</div>
-      <div><span>Skin Type:</span> ${escapeText(String(clientDetails.skinType))}</div>
-      <div><span>Hair Type:</span> ${escapeText(String(clientDetails.hairType))}</div>
-      <div><span>Goal:</span> ${escapeText(String(clientDetails.goal))}</div>
-      <div><span>Diet Preference:</span> ${escapeText(String(clientDetails.dietPreference))}</div>
-      ${dateRange ? `<div><span>Date:</span> ${dateRange}</div>` : ''}
-      <div><span>Duration:</span> ${days.length} ${days.length === 1 ? 'day' : 'days'}</div>
-    </div>
-    ${healthConditions.length > 0 ? `
-    <div style="margin-top:10px">
-      <h4 style="font-size:10px;margin-bottom:5px;color:#555">Health Conditions:</h4>
-      ${healthConditions.map((c) => `<span class="condition-badge">${escapeText(c)}</span>`).join('')}
-    </div>` : ''}
-    ${clientDetails.notes ? `<div style="margin-top:10px;font-size:10px"><strong>Notes:</strong> ${escapeText(clientDetails.notes)}</div>` : ''}
-  </div>
-
-  ${plan.instructions ? `<div class="intro"><p><strong>General Instructions:</strong> ${escapeText(plan.instructions)}</p></div>` : ''}
-
-  <h3 class="section-title">Diet Chart</h3>
-  <table>
-    <thead>
-      <tr>
-        <th>Day</th>${mealColumns.map((l) => `<th>${escapeText(l)}</th>`).join('')}${showCalories ? '<th>Calories</th>' : ''}<th>Notes</th>
-      </tr>
-    </thead>
-    <tbody>
-      ${days.map((d: any) => `
-        <tr>
-          <td><strong>${escapeText(d.day_label)}</strong></td>
-          ${mealColumns.map((l) => `<td>${escapeText(dayMealFor(d, l)) || '-'}</td>`).join('')}
-          ${showCalories ? `<td>${d.total_calories ? `${d.total_calories} kcal` : '-'}</td>` : ''}
-          <td>${escapeText(d.notes || '') || '-'}</td>
-        </tr>
-      `).join('')}
-    </tbody>
-  </table>
-
-  ${recipes.length > 0 ? `
-  <div style="page-break-before:always;margin-top:24px">
-    <h2 style="color:#FF4D06;font-size:18px;border-bottom:2px solid #FF4D06;padding-bottom:6px;margin-bottom:14px">Recipes for mentioned meals</h2>
-    ${recipes.map(r => `
-      <div style="margin-bottom:16px;page-break-inside:avoid">
-        <h3 style="color:#1a5fb4;font-size:13px;margin-bottom:6px">${escapeText(r.Meal_name)}</h3>
-        ${r.Ingredients ? `<div style="font-size:11px;line-height:1.5;color:#333;margin-bottom:6px"><strong>Ingredients:</strong><br/>${escapeText(r.Ingredients)}</div>` : ''}
-        <div style="font-size:11px;line-height:1.5;color:#333;margin-bottom:6px"><strong>Instructions:</strong><br/>${escapeText(r.Instructions)}</div>
-        ${r.Remarks ? `<div style="font-size:11px;line-height:1.5;color:#555"><strong>Remarks:</strong><br/>${escapeText(r.Remarks)}</div>` : ''}
-      </div>`).join('')}
-  </div>` : ''}
-
-  <div class="footer">
-    <p>© ${new Date().getFullYear()} Fitsush - Personalized Nutrition Plan</p>
-    <p>This plan is customized based on your specific requirements and health profile.</p>
-  </div>
-</body>
-</html>`;
-}
-
-// ---------------------------------------------------------------------------
-// Rich HTML builder — matches the AIDietPlanGenerator "Download PDF" format
-// (green #FF4D06 theme, Fitsush logo, full client details grid)
-// ---------------------------------------------------------------------------
-
-function buildRichAIPlanHtml(
-  aiData: any,
-  client: any,
-  planMeta: { planName: string; weekLabel: string; dateRange: string; duration: string },
-  recipes: Array<{ Meal_name: string; Ingredients: string; Instructions: string; Remarks: string }>,
-  affiliateProducts: Array<{ product_name: string; link: string }>,
-  logoDataUrl: string,
-): string {
-  const esc = (s: string) => (s || '').replace(/\n/g, '<br/>');
-  const escapePlain = (s: string) =>
-    (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-
-  const healthConditions: string[] = Array.isArray(client?.health_conditions)
-    ? client.health_conditions
-    : client?.health_conditions
-    ? [client.health_conditions]
-    : [];
-
-  const age = (() => {
-    if (!client?.date_of_birth) return '--';
-    const dob = new Date(client.date_of_birth);
-    const today = new Date();
-    let a = today.getFullYear() - dob.getFullYear();
-    const m = today.getMonth() - dob.getMonth();
-    if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) a--;
-    return a;
-  })();
-
-  const dayGroupTables = ((aiData.dayGroups ?? []) as any[]).map((group: any) => `
-    <h3 style="font-size:14px;color:#FF4D06;font-weight:700;margin:18px 0 8px;padding-bottom:4px;border-bottom:1px solid #FED7AA;">
-      ${group.label ?? ''}${group.dates ? ` <span style="font-size:12px;color:#666;font-weight:normal;">(${group.dates})</span>` : ''}
-    </h3>
-    <table>
-      <thead><tr>
-        <th style="width:13%">Period</th><th style="width:8%">Time</th>
-        <th style="width:34%">Food Plan</th><th style="width:30%">Alternative</th>
-        <th style="width:15%">Notes</th>
-      </tr></thead>
-      <tbody>
-        ${((group.meals ?? []) as any[]).map((m: any) => `
-          <tr>
-            <td>${m.period ?? '-'}</td><td>${m.time ?? '-'}</td>
-            <td>${esc(m.foodPlan ?? '-')}</td>
-            <td style="color:#666;font-style:italic">${esc(m.alternative ?? '-')}</td>
-            <td>${esc(m.notes ?? '-')}</td>
-          </tr>`).join('')}
-      </tbody>
-    </table>`).join('');
-
-  const recipesHtml = recipes.length === 0 ? '' : `
-    <div style="page-break-before:always;margin-top:24px">
-      <h2 style="color:#FF4D06;font-size:18px;border-bottom:2px solid #FF4D06;padding-bottom:6px;margin-bottom:14px">Recipes for mentioned meals</h2>
-      ${recipes.map(r => `
-        <div style="margin-bottom:16px;page-break-inside:avoid">
-          <h3 style="color:#1a5fb4;font-size:13px;margin-bottom:6px">${escapePlain(r.Meal_name)}</h3>
-          ${r.Ingredients ? `<div style="font-size:11px;line-height:1.5;color:#333;margin-bottom:6px"><strong>Ingredients:</strong><br/><span style="white-space:pre-wrap">${escapePlain(r.Ingredients)}</span></div>` : ''}
-          <div style="font-size:11px;line-height:1.5;color:#333;margin-bottom:6px"><strong>Instructions:</strong><br/><span style="white-space:pre-wrap">${escapePlain(r.Instructions)}</span></div>
-          ${r.Remarks ? `<div style="font-size:11px;line-height:1.5;color:#555"><strong>Remarks:</strong><br/><span style="white-space:pre-wrap">${escapePlain(r.Remarks)}</span></div>` : ''}
-        </div>`).join('')}
-    </div>`;
-
-  const affiliateHtml = affiliateProducts.length === 0 ? '' : `
-    <div style="margin-top:24px;page-break-inside:avoid">
-      <h2 style="color:#b45309;font-size:16px;border-bottom:2px solid #f59e0b;padding-bottom:6px;margin-bottom:12px">🛒 Shop Recommended Products</h2>
-      <table style="width:100%;border-collapse:collapse;font-size:11px">
-        <thead><tr>
-          <th style="background:#f59e0b;color:white;padding:7px 10px;text-align:left;width:40%">Product</th>
-          <th style="background:#f59e0b;color:white;padding:7px 10px;text-align:left">Buy Link</th>
-        </tr></thead>
-        <tbody>
-          ${affiliateProducts.map((p, i) => `
-            <tr style="background:${i % 2 === 0 ? '#fffbeb' : '#ffffff'}">
-              <td style="padding:7px 10px;border-bottom:1px solid #fde68a;font-weight:500">${p.product_name}</td>
-              <td style="padding:7px 10px;border-bottom:1px solid #fde68a">
-                <a href="${p.link}" style="color:#b45309;text-decoration:underline;word-break:break-all">${p.link}</a>
-              </td>
-            </tr>`).join('')}
-        </tbody>
-      </table>
-    </div>`;
-
-  return `<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8"/>
-  <title>${planMeta.planName}</title>
-  <style>
-    *{margin:0;padding:0;box-sizing:border-box}
-    body{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;padding:25px 35px;color:#333;font-size:11px;line-height:1.4}
-    .header{text-align:center;margin-bottom:25px;border-bottom:2px solid #FF4D06;padding-bottom:15px}
-    .header img{width:80px;height:auto;margin-bottom:10px}
-    .header h1{color:#FF4D06;font-size:20px;margin-bottom:5px}
-    .header p{color:#666;font-size:12px}
-    .week-badge{display:inline-block;background:#FF4D06;color:white;padding:3px 8px;border-radius:12px;font-size:10px;margin-left:10px}
-    .client-details{background:#f0f7ff;border:1px solid #b3d1ff;border-radius:8px;padding:15px;margin-bottom:20px}
-    .client-details h3{color:#1a5fb4;font-size:14px;margin-bottom:10px}
-    .client-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;font-size:10px}
-    .client-grid div{margin-bottom:5px}
-    .client-grid span{font-weight:bold;color:#555}
-    .condition-badge{display:inline-block;background:#e3f2fd;color:#1976d2;padding:2px 6px;border-radius:10px;font-size:9px;margin-right:4px;margin-bottom:4px}
-    .intro{background:#f9f9f9;padding:15px;border-radius:8px;margin-bottom:20px;border-left:4px solid #FF4D06}
-    .affirmations{background:#fef9e7;padding:15px;border-radius:8px;margin-bottom:20px;border-left:4px solid #f39c12}
-    .affirmations h3{color:#f39c12;font-size:14px;margin-bottom:10px}
-    .affirmations ul{margin-left:20px}
-    .affirmations li{margin-bottom:5px}
-    table{width:100%;border-collapse:collapse;margin-bottom:20px;font-size:10px}
-    th{background:#FF4D06;color:white;padding:8px;text-align:left;font-weight:bold}
-    td{padding:8px;border-bottom:1px solid #ddd;vertical-align:top}
-    tr:nth-child(even){background:#f9f9f9}
-    .serving{background:#e8f5e8;padding:10px;border-radius:5px;margin-bottom:15px;font-size:10px}
-    .oil-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:15px}
-    .oil-card{background:#f8f9fa;border:1px solid #dee2e6;border-radius:5px;padding:10px}
-    .oil-card h4{font-size:11px;margin-bottom:5px;color:#495057}
-    .oil-card ul{list-style:none;padding:0;margin:0}
-    .oil-card li{font-size:9px;margin-bottom:2px}
-    .notes-box{background:#fff3cd;border:1px solid #ffeaa7;border-radius:5px;padding:15px;margin-bottom:20px}
-    .notes-box h4{color:#856404;font-size:12px;margin-bottom:10px}
-    .notes-box ul{margin-left:15px}
-    .notes-box li{margin-bottom:5px;font-size:10px}
-    .grocery-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:20px}
-    .grocery-card{background:#f8f9fa;border:1px solid #dee2e6;border-radius:5px;padding:10px}
-    .grocery-card h4{font-size:11px;margin-bottom:5px;color:#495057}
-    .grocery-card ul{list-style:none;padding:0;margin:0}
-    .grocery-card li{font-size:9px;margin-bottom:2px}
-    .tips-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:20px}
-    .tip-card{background:#f8f9fa;border:1px solid #dee2e6;border-radius:5px;padding:10px}
-    .tip-card h4{font-size:11px;margin-bottom:5px;color:#495057}
-    .tip-card p{font-size:9px;margin:0}
-    .section-title{color:#FF4D06;font-size:16px;font-weight:bold;margin:25px 0 15px;border-bottom:1px solid #FED7AA;padding-bottom:5px}
-    .disclaimer{background:#f8f9fa;border:1px solid #dee2e6;border-radius:5px;padding:10px;margin-top:20px;font-size:9px;font-style:italic;color:#6c757d}
-    .footer{text-align:center;margin-top:30px;padding-top:15px;border-top:1px solid #ddd;font-size:9px;color:#999}
-    @media print{body{padding:15px}}
-  </style>
-</head>
-<body>
-  <div class="header">
-    ${logoDataUrl ? `<img src="${logoDataUrl}" alt="Fitsush Logo"/>` : ''}
-    <h1>${aiData.planName ?? planMeta.planName}</h1>
-    <p>Personalized Diet Plan for ${client?.name ?? 'Client'}
-      <span class="week-badge">${planMeta.weekLabel}</span>
-    </p>
-  </div>
-
-  <div class="client-details">
-    <h3>📋 Client Details</h3>
-    <div class="client-grid">
-      <div><span>Name:</span> ${client?.name ?? '--'}</div>
-      <div><span>Age:</span> ${age} years</div>
-      <div><span>Gender:</span> ${client?.gender ?? 'Not specified'}</div>
-      <div><span>Height/Weight:</span> ${client?.height ?? '--'}cm / ${client?.weight ?? '--'}kg</div>
-      <div><span>Skin Type:</span> ${client?.skin_type ?? 'Not specified'}</div>
-      <div><span>Hair Type:</span> ${client?.hair_type ?? 'Not specified'}</div>
-      <div><span>Goal:</span> ${client?.goal ?? 'Not specified'}</div>
-      <div><span>Diet Preference:</span> ${client?.diet_preference ?? 'Not specified'}</div>
-      <div><span>Date:</span> ${planMeta.dateRange}</div>
-      <div><span>Duration:</span> ${planMeta.duration} days</div>
-    </div>
-    ${healthConditions.length > 0 ? `
-    <div style="margin-top:10px">
-      <h4 style="font-size:10px;margin-bottom:5px;color:#555">Health Conditions:</h4>
-      ${healthConditions.map((c: string) => `<span class="condition-badge">${c}</span>`).join('')}
-    </div>` : ''}
-    ${client?.notes ? `<div style="margin-top:10px;font-size:10px"><strong>Notes:</strong> ${client.notes}</div>` : ''}
-  </div>
-
-  ${aiData.introMessage ? `<div class="intro"><p>${esc(aiData.introMessage)}</p></div>` : ''}
-
-  ${(aiData.affirmations?.length ?? 0) > 0 ? `
-  <div class="affirmations">
-    <h3>Positive Affirmations for ${client?.name ?? 'Client'}:</h3>
-    <ul>${(aiData.affirmations as string[]).map(a => `<li>${a}</li>`).join('')}</ul>
-  </div>` : ''}
-
-  ${dayGroupTables}
-
-  <h3 class="section-title">Additional Guidelines</h3>
-  <div class="serving"><strong>Serving Size:</strong> ${aiData.servingSize ?? '1 bowl is 250ml, 1 cup 150ml, 1 katori 100ml'}</div>
-
-  ${aiData.oilGuidelines ? `
-  <div>
-    <h4 style="font-size:11px;color:#333;margin-bottom:6px">Use of Oils:</h4>
-    <div class="oil-grid">
-      <div class="oil-card"><h4>Cooking - Group A</h4><ul>${((aiData.oilGuidelines.cooking?.groupA ?? []) as string[]).map(o => `<li>- ${o}</li>`).join('')}</ul></div>
-      <div class="oil-card"><h4>Cooking - Group B</h4><ul>${((aiData.oilGuidelines.cooking?.groupB ?? []) as string[]).map(o => `<li>- ${o}</li>`).join('')}</ul></div>
-      <div class="oil-card"><h4>Raw/Topping</h4><ul>${((aiData.oilGuidelines.raw ?? []) as string[]).map(o => `<li>- ${o}</li>`).join('')}</ul></div>
-      <div class="oil-card"><h4>Deep Frying</h4><ul>${((aiData.oilGuidelines.deepFrying ?? []) as string[]).map(o => `<li>- ${o}</li>`).join('')}</ul></div>
-    </div>
-    <p style="font-style:italic;font-size:9px;color:#6c757d;margin:0">${aiData.oilGuidelines.note ?? ''}</p>
-  </div>` : ''}
-
-  ${(aiData.importantNotes?.length ?? 0) > 0 ? `
-  <div class="notes-box">
-    <h4>⚠️ Important Notes:</h4>
-    <ul style="padding-left:15px">${(aiData.importantNotes as string[]).map(n => `<li>${n}</li>`).join('')}</ul>
-  </div>` : ''}
-
-  ${(aiData.weeklyGroceryList?.length ?? 0) > 0 ? `
-  <h3 class="section-title">🛒 Weekly Grocery List</h3>
-  <div class="grocery-grid">
-    ${(aiData.weeklyGroceryList as any[]).map((cat: any) => `
-      <div class="grocery-card">
-        <h4>${cat.category}</h4>
-        <ul>${(cat.items as string[]).map(item => `<li>${item}</li>`).join('')}</ul>
-      </div>`).join('')}
-  </div>` : ''}
-
-  <div class="tips-grid">
-    ${aiData.skinCareTips ? `<div class="tip-card"><h4>✨ Skin Care Tips</h4><p>${aiData.skinCareTips}</p></div>` : ''}
-    ${aiData.hairCareTips ? `<div class="tip-card"><h4>💇 Hair Care Tips</h4><p>${aiData.hairCareTips}</p></div>` : ''}
-    ${aiData.healthNotes ? `<div class="tip-card"><h4>🏥 Health Notes</h4><p>${aiData.healthNotes}</p></div>` : ''}
-    <div class="tip-card"><h4>💊 Recommended Supplements</h4><p>${aiData.supplements ?? 'No supplements specified'}</p></div>
-  </div>
-
-  ${aiData.disclaimer ? `<div class="disclaimer"><strong>Disclaimer:</strong> ${aiData.disclaimer}</div>` : ''}
-
-  ${recipesHtml}
-  ${affiliateHtml}
-
-  <div class="footer">© ${new Date().getFullYear()} Fitsush. This nutrition plan is personalized and should be followed as advised.</div>
-</body>
-</html>`;
-}
-
-// ---------------------------------------------------------------------------
-// Opens the plan in a new tab for browser print / Save as PDF
-// ---------------------------------------------------------------------------
 
 async function loadLogoDataUrl(): Promise<string> {
   try {
@@ -880,129 +69,104 @@ async function loadLogoDataUrl(): Promise<string> {
   } catch { return ''; }
 }
 
-export async function openDietPlanForPrint(plan: any): Promise<void> {
+// Full chart HTML for a plan (needs plan.clients, and plan.diet_plan_days for manual plans).
+export async function loadPlanHtml(plan: any): Promise<string> {
   const isAI = plan.is_ai_generated && plan.ai_plan_data;
-
-  if (!isAI) {
-    // Manual plan — same branded layout as the AI plan PDF
-    const [recipes, logoDataUrl] = await Promise.all([
-      fetchRecipesForManualPlan(plan.diet_plan_days),
-      loadLogoDataUrl(),
-    ]);
-    const html = buildDietPlanHtml(plan, recipes, [], logoDataUrl);
-    if (!html) return;
-    const w = window.open('', '_blank');
-    if (w) { w.document.write(html); w.document.close(); w.print(); }
-    return;
-  }
-
-  // Fetch logo, recipes and affiliate products in parallel
-  const [logoDataUrl, recipes, affiliateProducts] = await Promise.all([
-    (async () => {
-      try {
-        const res = await fetch('/fitsush-logo.webp');
-        const blob = await res.blob();
-        return await new Promise<string>((resolve) => {
-          const reader = new FileReader();
-          reader.onloadend = () => resolve(reader.result as string);
-          reader.readAsDataURL(blob);
-        });
-      } catch { return ''; }
-    })(),
-    fetchRecipesForAIPlan(plan.ai_plan_data),
-    fetchAffiliateProductsForPlan(plan.ai_plan_data),
+  const [recipes, affiliateProducts, logoDataUrl] = await Promise.all([
+    isAI ? fetchRecipesForAIPlan(plan.ai_plan_data) : fetchRecipesForManualPlan(plan.diet_plan_days),
+    isAI ? fetchAffiliateProductsForPlan(plan.ai_plan_data) : Promise.resolve([]),
+    loadLogoDataUrl(),
   ]);
+  return buildPlanHtml(plan, { recipes, affiliateProducts, logoDataUrl });
+}
 
-  // Compute date range from plan metadata
-  const aiData = plan.ai_plan_data;
-  const startDateStr = aiData.editableStartDate ?? plan.start_date ?? aiData.startDate ?? '';
-  const dayCount = parseInt(aiData.editableDayCount ?? '7') || 7;
-  let dateRange = 'Not specified';
-  if (startDateStr) {
-    try {
-      const start = new Date(startDateStr);
-      const end = new Date(start);
-      end.setDate(start.getDate() + dayCount - 1);
-      const fmt = (d: Date) =>
-        `${String(d.getDate()).padStart(2, '0')}-${String(d.getMonth() + 1).padStart(2, '0')}-${d.getFullYear()}`;
-      dateRange = `${fmt(start)} to ${fmt(end)}`;
-    } catch { /* leave as Not specified */ }
-  }
-
-  const client = plan.clients ?? {};
-  const planMeta = {
-    planName: aiData.planName ?? plan.plan_name ?? 'Diet Plan',
-    weekLabel: plan.plan_name ?? aiData.planName ?? 'Diet Plan',
-    dateRange,
-    duration: String(dayCount),
-  };
-
-  const html = buildRichAIPlanHtml(aiData, client, planMeta, recipes, affiliateProducts, logoDataUrl);
+// Opens the plan in a new tab for browser print / Save as PDF.
+export async function openDietPlanForPrint(plan: any): Promise<void> {
+  const html = await loadPlanHtml(plan);
   const w = window.open('', '_blank');
   if (w) { w.document.write(html); w.document.close(); w.print(); }
 }
 
 // ---------------------------------------------------------------------------
-// Renders the plan HTML off-screen, captures it with html2canvas, and
-// returns a jsPDF Blob ready for Supabase storage upload.
+// PDF file for the client app (made on Publish). Same HTML as the print view,
+// rendered in an isolated iframe and cut into A4 pages at row/heading
+// boundaries so table rows aren't split across pages.
 // ---------------------------------------------------------------------------
 
+const PAGE_WIDTH_PX = 794; // A4 at 96dpi
+const PAGE_HEIGHT_PX = Math.round(PAGE_WIDTH_PX * (297 / 210));
+
 export async function generateDietPlanPdfBlob(plan: any): Promise<Blob | null> {
-  const isAI = plan.is_ai_generated && plan.ai_plan_data;
-  const html = isAI
-    ? buildDietPlanHtml(plan)
-    : buildDietPlanHtml(plan, await fetchRecipesForManualPlan(plan.diet_plan_days), [], await loadLogoDataUrl());
+  const html = await loadPlanHtml(plan);
   if (!html) return null;
 
-  const container = document.createElement('div');
-  container.style.cssText =
-    'position:fixed;left:-9999px;top:0;width:794px;background:white;z-index:-1;';
-  container.innerHTML = html;
-  document.body.appendChild(container);
+  const iframe = document.createElement('iframe');
+  iframe.style.cssText = `position:fixed;left:-10000px;top:0;width:${PAGE_WIDTH_PX}px;height:${PAGE_HEIGHT_PX}px;border:0;`;
+  document.body.appendChild(iframe);
 
   try {
-    const canvas = await html2canvas(container, {
-      scale: 2,
+    const doc = iframe.contentDocument!;
+    doc.open();
+    doc.write(html);
+    doc.close();
+    await Promise.all(Array.from(doc.images).map((img) =>
+      img.complete ? null : new Promise((resolve) => { img.onload = img.onerror = resolve; })));
+
+    const body = doc.body;
+    const totalHeight = body.scrollHeight;
+    const topOf = (el: Element) => el.getBoundingClientRect().top;
+
+    // Where a page may end: the top of any row/heading/block. Forced breaks: page-break-before.
+    const breakpoints = Array.from(body.querySelectorAll('tr, h1, h2, h3, h4, p, li, .client-details, .intro, .day-notes, .notes-box, [style*="page-break-inside"]'))
+      .map(topOf).filter((y) => y > 0).sort((a, b) => a - b);
+    const forced = Array.from(body.querySelectorAll('[style*="page-break-before"]'))
+      .map(topOf).filter((y) => y > 0).sort((a, b) => a - b);
+
+    const scale = 2;
+    const canvas = await html2canvas(body, {
+      scale,
       useCORS: true,
       logging: false,
-      width: 794,
+      width: PAGE_WIDTH_PX,
+      windowWidth: PAGE_WIDTH_PX,
+      height: totalHeight,
+      windowHeight: totalHeight,
     });
 
     const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
     const pageW = pdf.internal.pageSize.getWidth();
-    const pageH = pdf.internal.pageSize.getHeight();
-    const ratio = canvas.width / pageW;
-    const totalPdfH = canvas.height / ratio;
+    const mmPerPx = pageW / PAGE_WIDTH_PX;
 
-    let yOffset = 0;
+    let start = 0;
     let firstPage = true;
-    while (yOffset < totalPdfH) {
+    while (start < totalHeight - 1) {
+      const ideal = start + PAGE_HEIGHT_PX;
+      let end: number;
+      const forcedBreak = forced.find((y) => y > start + 1 && y <= ideal);
+      if (ideal >= totalHeight) end = totalHeight;
+      else if (forcedBreak) end = forcedBreak;
+      else {
+        const candidates = breakpoints.filter((y) => y > start + PAGE_HEIGHT_PX * 0.5 && y <= ideal);
+        end = candidates.length ? candidates[candidates.length - 1] : ideal;
+      }
+      if (end >= totalHeight - 1) end = totalHeight;
+
+      const slice = document.createElement('canvas');
+      slice.width = canvas.width;
+      slice.height = Math.round((end - start) * scale);
+      const ctx = slice.getContext('2d')!;
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, slice.width, slice.height);
+      ctx.drawImage(canvas, 0, Math.round(start * scale), canvas.width, slice.height, 0, 0, canvas.width, slice.height);
+
       if (!firstPage) pdf.addPage();
       firstPage = false;
-
-      const sliceH = Math.min(pageH, totalPdfH - yOffset) * ratio;
-      const sliceCanvas = document.createElement('canvas');
-      sliceCanvas.width = canvas.width;
-      sliceCanvas.height = sliceH;
-      const ctx = sliceCanvas.getContext('2d')!;
-      ctx.drawImage(
-        canvas,
-        0, yOffset * ratio,
-        canvas.width, sliceH,
-        0, 0,
-        canvas.width, sliceH,
-      );
-      pdf.addImage(
-        sliceCanvas.toDataURL('image/jpeg', 0.92),
-        'JPEG',
-        0, 0,
-        pageW, sliceH / ratio,
-      );
-      yOffset += pageH;
+      pdf.addImage(slice.toDataURL('image/jpeg', 0.92), 'JPEG', 0, 0, pageW, (end - start) * mmPerPx);
+      start = end;
     }
 
     return pdf.output('blob');
   } finally {
-    document.body.removeChild(container);
+    document.body.removeChild(iframe);
   }
 }

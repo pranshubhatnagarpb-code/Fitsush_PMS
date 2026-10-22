@@ -653,7 +653,7 @@ function ProfileTab({ client }: { client: any }) {
           <div><p className="mb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">Email</p><p className="text-sm">{client.email ?? '—'}</p></div>
           <div><p className="mb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">Phone</p><p className="text-sm">{client.phone ?? '—'}</p></div>
           <div><p className="mb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">Date of Birth</p><p className="text-sm">{client.date_of_birth ?? '—'}</p></div>
-          <div><p className="mb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">Age</p><p className="text-sm">{formatAge(client.date_of_birth) ?? '—'}</p></div>
+          <div><p className="mb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">Age</p><p className="text-sm">{formatAge(client.date_of_birth) ?? (client.age != null ? `${client.age} years` : '—')}</p></div>
           <div><p className="mb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">Gender</p><p className="text-sm capitalize">{client.gender ?? '—'}</p></div>
           <div><p className="mb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">City</p><p className="text-sm">{client.address ?? '—'}</p></div>
         </CardContent></Card>

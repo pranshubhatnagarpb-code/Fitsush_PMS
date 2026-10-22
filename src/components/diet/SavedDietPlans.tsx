@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Eye, Trash2, Download, Search, Calendar, User, Copy, Loader2, Edit, Check, X, Globe, EyeOff } from 'lucide-react';
-import { openDietPlanForPrint, planMealColumns, dayMealFor } from '@/lib/dietPlanPdf';
+import { openDietPlanForPrint, planMealColumns, dayMealOptionsFor, countPlanDays, planSupplements } from '@/lib/dietPlanPdf';
 import { useSavedDietPlans, useDeleteDietPlan } from '@/hooks/useDietPlans';
 import { usePublishDietPlan, useUnpublishDietPlan } from '@/hooks/useDietPlanFiles';
 import { supabase } from '@/integrations/supabase/client';
@@ -18,6 +18,7 @@ import { toast } from 'sonner';
 // Import the AIDietPlanGenerator component
 import { AIDietPlanGenerator } from './AIDietPlanGenerator';
 import { BRANDING } from '@/config/branding';
+import { mealFoodOptions } from '@/lib/mealOptions';
 
 const SavedDietPlans = () => {
   const { data: plans = [], isLoading, refetch } = useSavedDietPlans();
@@ -91,7 +92,8 @@ const SavedDietPlans = () => {
     
     // Then check diet_plan_days
     if (plan.diet_plan_days && plan.diet_plan_days.length > 0) {
-      return plan.diet_plan_days.length;
+      // One manual day card can cover several weekdays ("Monday – Friday").
+      return countPlanDays(plan.diet_plan_days);
     }
     
     // Then check AI plan data dayGroups
@@ -463,7 +465,17 @@ const PlanDetailView = ({ plan }: { plan: any }) => {
                   <TableRow key={mi}>
                     <TableCell className="font-medium">{meal.period || '-'}</TableCell>
                     <TableCell>{meal.time || '-'}</TableCell>
-                    <TableCell>{meal.foodPlan || '-'}</TableCell>
+                    <TableCell>
+                      {(() => {
+                        const opts = mealFoodOptions(meal);
+                        if (opts.length <= 1) return opts[0] || '-';
+                        return opts.map((o, oi) => (
+                          <div key={oi} className={oi ? 'mt-1 pt-1 border-t' : ''}>
+                            <span className="font-semibold text-primary">Option {oi + 1}:</span> {o}
+                          </div>
+                        ));
+                      })()}
+                    </TableCell>
                     <TableCell>{meal.alternative || '-'}</TableCell>
                     <TableCell>{meal.notes || '-'}</TableCell>
                   </TableRow>
@@ -552,13 +564,44 @@ const PlanDetailView = ({ plan }: { plan: any }) => {
           {days.map((d: any) => (
             <TableRow key={d.id}>
               <TableCell className="font-medium">{d.day_label}</TableCell>
-              {mealColumns.map((label) => <TableCell key={label}>{dayMealFor(d, label) || '-'}</TableCell>)}
+              {mealColumns.map((label) => {
+                const opts = dayMealOptionsFor(d, label);
+                return (
+                  <TableCell key={label}>
+                    {opts.length === 0 ? '-' : opts.length === 1 ? opts[0] : opts.map((o, oi) => (
+                      <div key={oi} className={oi ? 'mt-1 pt-1 border-t' : ''}>
+                        <span className="font-semibold text-primary">Option {oi + 1}:</span> {o}
+                      </div>
+                    ))}
+                  </TableCell>
+                );
+              })}
               <TableCell className="font-semibold">{d.total_calories ? `${d.total_calories} kcal` : '-'}</TableCell>
               <TableCell className="text-sm text-muted-foreground whitespace-pre-wrap">{d.notes || '-'}</TableCell>
             </TableRow>
           ))}
         </TableBody>
       </Table>
+
+      {planSupplements(plan).length > 0 && (
+        <div>
+          <h4 className="font-semibold mb-2">Supplements</h4>
+          <Table>
+            <TableHeader>
+              <TableRow><TableHead>Time</TableHead><TableHead>Supplement</TableHead><TableHead>Notes</TableHead></TableRow>
+            </TableHeader>
+            <TableBody>
+              {planSupplements(plan).map((sup, i) => (
+                <TableRow key={i}>
+                  <TableCell className="font-medium">{sup.time || '-'}</TableCell>
+                  <TableCell>{sup.supplement}</TableCell>
+                  <TableCell>{sup.notes || '-'}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      )}
     </div>
   );
 };

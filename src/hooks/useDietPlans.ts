@@ -31,6 +31,7 @@ interface CreateDietPlanInput {
   client_id: string;
   plan_name: string;
   instructions: string;
+  supplements?: Array<{ time: string; supplement: string; notes: string }>;
   days: DayPlanInput[];
 }
 
@@ -45,6 +46,9 @@ export const useCreateDietPlan = () => {
           client_id: input.client_id,
           plan_name: input.plan_name,
           instructions: input.instructions,
+          // Only sent when there are supplements, so plans without any still save
+          // before _db/diet-plans-supplements-column.sql has been run.
+          ...(input.supplements?.length ? { supplements: input.supplements as unknown as Json } : {}),
           status: 'active',
         })
         .select()
@@ -96,7 +100,7 @@ export const useSavedDietPlans = () => {
         .from('diet_plans')
         .select(`
           *,
-          clients (id, name, email, phone, date_of_birth, gender, height, weight, skin_type, hair_type, goal, diet_preference, health_conditions, notes),
+          clients (id, name, email, phone, date_of_birth, age, gender, height, weight, skin_type, hair_type, goal, diet_preference, health_conditions, notes),
           diet_plan_days (
             *,
             breakfast_option:diet_options!diet_plan_days_breakfast_option_id_fkey (id, name, calories),

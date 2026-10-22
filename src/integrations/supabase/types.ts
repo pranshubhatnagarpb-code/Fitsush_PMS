@@ -747,6 +747,7 @@ export type Database = {
       clients: {
         Row: {
           address: string | null
+          age: number | null
           anniversary_date: string | null
           client_code: string | null
           created_at: string
@@ -780,6 +781,7 @@ export type Database = {
         }
         Insert: {
           address?: string | null
+          age?: number | null
           anniversary_date?: string | null
           client_code?: string | null
           created_at?: string
@@ -813,6 +815,7 @@ export type Database = {
         }
         Update: {
           address?: string | null
+          age?: number | null
           anniversary_date?: string | null
           client_code?: string | null
           created_at?: string
@@ -1034,6 +1037,7 @@ export type Database = {
           published_at: string | null
           start_date: string | null
           status: string
+          supplements: Json
           updated_at: string
           week_number: number | null
         }
@@ -1054,6 +1058,7 @@ export type Database = {
           published_at?: string | null
           start_date?: string | null
           status?: string
+          supplements?: Json
           updated_at?: string
           week_number?: number | null
         }
@@ -1074,6 +1079,7 @@ export type Database = {
           published_at?: string | null
           start_date?: string | null
           status?: string
+          supplements?: Json
           updated_at?: string
           week_number?: number | null
         }

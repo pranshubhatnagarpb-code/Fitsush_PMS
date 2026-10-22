@@ -39,6 +39,7 @@ interface ClientFormData {
   email: string;
   address: string;
   date_of_birth: string;
+  age: string; // typed in only when there's no date_of_birth; otherwise calculated
   anniversary_date: string;
   height: string;
   weight: string;
@@ -116,6 +117,7 @@ const emptyFormData: ClientFormData = {
   email: '',
   address: '',
   date_of_birth: '',
+  age: '',
   anniversary_date: '',
   height: '',
   weight: '',
@@ -174,6 +176,7 @@ export const ClientFormDialog = ({ open, onOpenChange, client, onSubmit, isLoadi
         email: client.email || '',
         address: client.address || '',
         date_of_birth: client.date_of_birth || '',
+        age: client.age?.toString() || '',
         anniversary_date: client.anniversary_date || '',
         height: client.height?.toString() || '',
         weight: client.weight?.toString() || '',
@@ -304,7 +307,9 @@ export const ClientFormDialog = ({ open, onOpenChange, client, onSubmit, isLoadi
         email: formData.email.trim() || null,
         address: formData.address.trim() || null,
         date_of_birth: formData.date_of_birth || null,
-        age: calcAge(formData.date_of_birth),
+        age: formData.date_of_birth
+          ? calcAge(formData.date_of_birth)
+          : formData.age.trim() ? parseInt(formData.age, 10) : null,
         anniversary_date: formData.anniversary_date || null,
         height: formData.height ? parseFloat(formData.height) : null,
         weight: formData.weight ? parseFloat(formData.weight) : null,
@@ -385,19 +390,42 @@ export const ClientFormDialog = ({ open, onOpenChange, client, onSubmit, isLoadi
                 />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-3 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="dob">Date of Birth</Label>
                 <Input
                   id="dob"
                   type="date"
                   value={formData.date_of_birth}
-                  onChange={(e) => setFormData({ ...formData, date_of_birth: e.target.value })}
+                  onChange={(e) => {
+                    const dob = e.target.value;
+                    // Clearing the DOB keeps the last calculated age as an editable starting point.
+                    const keptAge = !dob && formData.date_of_birth ? calcAge(formData.date_of_birth)?.toString() ?? formData.age : formData.age;
+                    setFormData({ ...formData, date_of_birth: dob, age: keptAge });
+                  }}
                 />
-                {formData.date_of_birth && (
-                  <p className="text-xs text-muted-foreground">
-                    Age: {formatAge(formData.date_of_birth) ?? '—'}
-                  </p>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="age">Age</Label>
+                {formData.date_of_birth ? (
+                  <>
+                    <Input id="age" value={formatAge(formData.date_of_birth) ?? '—'} readOnly className="bg-muted cursor-not-allowed" />
+                    <p className="text-xs text-muted-foreground">Calculated from date of birth</p>
+                  </>
+                ) : (
+                  <>
+                    <Input
+                      id="age"
+                      type="number"
+                      min="0"
+                      max="120"
+                      step="1"
+                      value={formData.age}
+                      onChange={(e) => setFormData({ ...formData, age: e.target.value })}
+                      placeholder="Years"
+                    />
+                    <p className="text-xs text-muted-foreground">Enter manually, or fill date of birth to calculate</p>
+                  </>
                 )}
               </div>
               <div className="space-y-2">

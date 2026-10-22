@@ -10,6 +10,7 @@ export interface Client {
   phone: string | null;
   address: string | null;
   date_of_birth: string | null;
+  age: number | null; // stored snapshot; prefer computing from date_of_birth when present
   anniversary_date: string | null;
   weight: number | null;
   height: number | null;

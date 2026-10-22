@@ -14,6 +14,7 @@ import { Sparkles, Download, Loader2, Pencil, Check, X, CheckCircle2, Plus, Tras
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { fetchAffiliateProductsForPlan } from '@/lib/dietPlanPdf';
+import { mealFoodOptions, mealOptionRowsHtml } from '@/lib/mealOptions';
 import { FunctionsHttpError } from '@supabase/supabase-js';
 import { Client } from '@/hooks/useClients';
 import { useDietChartTemplates, useCreateTemplate, type DietChartTemplate, type TemplateDay, type TemplateMeal } from '@/hooks/useDietChartTemplates';
@@ -29,12 +30,28 @@ interface MealNutrition {
 interface MealItem {
   period: string;
   time: string;
-  foodPlan: string;
+  foodPlan: string; // main meal — option 1
+  moreOptions?: string[]; // main-meal options 2..N; each prints as its own row
   alternative: string;
   notes: string;
   isManuallyAdded?: boolean; // Track if this row was manually added
   nutrition?: MealNutrition;
 }
+
+type EditingCell = {
+  mealTimeIdx: number;
+  dayIdx: number;
+  field: 'foodPlan' | 'notes' | 'alternative' | 'option';
+  optionIdx?: number; // index into moreOptions when field === 'option'
+};
+
+// Applies an edited cell value to a meal. Emptying an extra option removes it.
+const applyCellEdit = (meal: MealItem, cell: EditingCell, value: string): MealItem => {
+  if (cell.field !== 'option') return { ...meal, [cell.field]: value };
+  const more = [...(meal.moreOptions ?? [])];
+  more[cell.optionIdx ?? more.length] = value;
+  return { ...meal, moreOptions: more.filter((o) => o.trim()) };
+};
 
 interface DayGroup {
   label: string;
@@ -112,7 +129,7 @@ export const AIDietPlanGenerator = ({ clients, editModeData, onClose }: Props) =
     setNumberOfDays(value);
   };
   const [nextDietChartNumber, setNextDietChartNumber] = useState(1);
-  const [editingCell, setEditingCell] = useState<{ mealTimeIdx: number; dayIdx: number; field: 'foodPlan' | 'notes' | 'alternative' } | null>(null);
+  const [editingCell, setEditingCell] = useState<EditingCell | null>(null);
   const [editValue, setEditValue] = useState('');
   const [editingField, setEditingField] = useState<string | null>(null);
   const [editFieldValue, setEditFieldValue] = useState('');
@@ -312,6 +329,10 @@ export const AIDietPlanGenerator = ({ clients, editModeData, onClose }: Props) =
     }
     return age;
   };
+
+  // DOB is the source of truth; fall back to the manually entered age when there's no DOB.
+  const clientAge = (client: { date_of_birth: string | null; age?: number | null }) =>
+    client.date_of_birth ? calculateAge(client.date_of_birth) : client.age ?? null;
 
   // Generate day labels based on selected start date and number of days
   const generateDayLabels = () => {
@@ -664,7 +685,7 @@ export const AIDietPlanGenerator = ({ clients, editModeData, onClose }: Props) =
       goal: selectedClient.goal as 'weight_loss' | 'weight_gain' | 'maintain',
       height: selectedClient.height,
       weight: selectedClient.weight,
-      age: calculateAge(selectedClient.date_of_birth),
+      age: clientAge(selectedClient),
       gender: selectedClient.gender as 'male' | 'female' | 'other',
       skinType: selectedClient.skin_type || 'Not specified',
       hairType: selectedClient.hair_type || 'Not specified',
@@ -760,6 +781,7 @@ export const AIDietPlanGenerator = ({ clients, editModeData, onClose }: Props) =
         period: match ? match[1] : slot,
         time: match ? match[2] : '',
         foodPlan: templateMeal.meal || '',
+        moreOptions: templateMeal.mealOptions?.length ? templateMeal.mealOptions : undefined,
         alternative: templateMeal.alternatives || '',
         notes: templateMeal.notes || '',
         isManuallyAdded: false
@@ -804,6 +826,7 @@ export const AIDietPlanGenerator = ({ clients, editModeData, onClose }: Props) =
       meals: dayGroup.meals.map((meal) => ({
         time: meal.time,
         meal: meal.foodPlan,
+        ...(meal.moreOptions?.length ? { mealOptions: meal.moreOptions } : {}),
         alternatives: meal.alternative,
         notes: meal.notes
       }))
@@ -909,12 +932,35 @@ export const AIDietPlanGenerator = ({ clients, editModeData, onClose }: Props) =
   };
 
   // Editing helpers for tabular layout
-  const startEditCell = (mealTimeIdx: number, dayIdx: number, field: 'foodPlan' | 'notes' | 'alternative') => {
+  const startEditCell = (mealTimeIdx: number, dayIdx: number, field: EditingCell['field'], optionIdx?: number) => {
     if (!generatedPlan) return;
     const meal = generatedPlan.dayGroups[dayIdx]?.meals[mealTimeIdx];
     if (!meal) return;
-    setEditingCell({ mealTimeIdx, dayIdx, field });
-    setEditValue(meal[field] || '');
+    setEditingCell({ mealTimeIdx, dayIdx, field, optionIdx });
+    setEditValue(field === 'option' ? meal.moreOptions?.[optionIdx ?? -1] ?? '' : meal[field] || '');
+  };
+
+  const updateMeal = (mealTimeIdx: number, dayIdx: number, fn: (meal: MealItem) => MealItem) => {
+    if (!generatedPlan) return;
+    setGeneratedPlan({
+      ...generatedPlan,
+      dayGroups: generatedPlan.dayGroups.map((g, gi) =>
+        gi === dayIdx ? { ...g, meals: g.meals.map((m, mi) => (mi === mealTimeIdx ? fn(m) : m)) } : g
+      ),
+    });
+  };
+
+  // Adds an empty main-meal option to one cell and opens it for typing.
+  const addMealOption = (mealTimeIdx: number, dayIdx: number) => {
+    const meal = generatedPlan?.dayGroups[dayIdx]?.meals[mealTimeIdx];
+    if (!meal) return;
+    setEditingCell({ mealTimeIdx, dayIdx, field: 'option', optionIdx: meal.moreOptions?.length ?? 0 });
+    setEditValue('');
+  };
+
+  const removeMealOption = (mealTimeIdx: number, dayIdx: number, optionIdx: number) => {
+    updateMeal(mealTimeIdx, dayIdx, (m) => ({ ...m, moreOptions: (m.moreOptions ?? []).filter((_, i) => i !== optionIdx) }));
+    setEditingCell(null);
   };
 
   const saveEditCell = () => {
@@ -928,7 +974,7 @@ export const AIDietPlanGenerator = ({ clients, editModeData, onClose }: Props) =
             ...dayGroup,
             meals: dayGroup.meals.map((meal, mealIndex) =>
               mealIndex === editingCell.mealTimeIdx
-                ? { ...meal, [editingCell.field]: editValue }
+                ? applyCellEdit(meal, editingCell, editValue)
                 : meal
             )
           }
@@ -1483,7 +1529,7 @@ export const AIDietPlanGenerator = ({ clients, editModeData, onClose }: Props) =
     const raw: string[] = [];
     activePlan.dayGroups.forEach(dg => {
       dg.meals.forEach(m => {
-        [m.foodPlan, m.alternative].forEach(text => {
+        [...mealFoodOptions(m), m.alternative].forEach(text => {
           if (!text) return;
           text.split(/\n|,|;|\/|\+|\bor\b|\band\b|\bwith\b/i).forEach(piece => {
             const cleaned = piece
@@ -1627,7 +1673,7 @@ export const AIDietPlanGenerator = ({ clients, editModeData, onClose }: Props) =
                   ...dg,
                   meals: dg.meals.map((m, mealIdx) =>
                     mealIdx === editingCell.mealTimeIdx
-                      ? { ...m, [editingCell.field]: editValue.trim() }
+                      ? applyCellEdit(m, editingCell, editValue.trim())
                       : m
                   ),
                 }
@@ -1661,16 +1707,16 @@ export const AIDietPlanGenerator = ({ clients, editModeData, onClose }: Props) =
           </tr>
         </thead>
         <tbody>
-          ${group.meals.map(meal => `
-            <tr>
-              <td class="period-cell">${meal.period}</td>
-              <td class="time-cell">${meal.time}</td>
-              <td class="food-cell">${escapeHtml(meal.foodPlan)}</td>
-              <td class="food-cell" style="color: #666; font-style: italic;">${escapeHtml(meal.alternative || '-')}</td>
-              <td class="notes-cell">${escapeHtml(meal.notes)}</td>
-              ${planHasNutrition ? `<td class="notes-cell">${escapeHtml(formatNutrition(meal.nutrition))}</td>` : ''}
-            </tr>
-          `).join('')}
+          ${group.meals.map(meal => mealOptionRowsHtml(
+            mealFoodOptions(meal).map(escapeHtml),
+            [`<td class="period-cell">${meal.period}</td>`, `<td class="time-cell">${meal.time}</td>`],
+            [
+              `<td class="food-cell" style="color: #666; font-style: italic;">${escapeHtml(meal.alternative || '-')}</td>`,
+              `<td class="notes-cell">${escapeHtml(meal.notes)}</td>`,
+              ...(planHasNutrition ? [`<td class="notes-cell">${escapeHtml(formatNutrition(meal.nutrition))}</td>`] : []),
+            ],
+            '<td class="food-cell">',
+          )).join('')}
         </tbody>
       </table>
     `).join('');
@@ -1685,7 +1731,7 @@ export const AIDietPlanGenerator = ({ clients, editModeData, onClose }: Props) =
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 25px 35px; color: #333; font-size: 11px; line-height: 1.4; }
     .header { text-align: center; margin-bottom: 25px; border-bottom: 2px solid #FF4D06; padding-bottom: 15px; }
-    .header-logo { width: 80px; height: auto; margin-bottom: 10px; }
+    .header-logo { width: 180px; height: auto; margin-bottom: 12px; }
     .header h1 { color: #FF4D06; font-size: 20px; margin-bottom: 5px; }
     .header p { color: #666; font-size: 12px; }
     .client-details { background: #f0f7ff; border: 1px solid #b3d1ff; border-radius: 8px; padding: 15px; margin-bottom: 20px; }
@@ -1742,9 +1788,7 @@ export const AIDietPlanGenerator = ({ clients, editModeData, onClose }: Props) =
   <div class="header">
     <img src="${logoDataUrl}" alt="Fitsush Logo" class="header-logo" />
     <h1>${generatedPlan.planName}</h1>
-    <p>Personalized Diet Plan for ${clientDetails.name}
-      <span class="week-badge">${getFullPlanName()}</span>
-    </p>
+    <p><span class="week-badge" style="margin-left:0">${getFullPlanName()}</span></p>
   </div>
 
   <!-- Client KYC Details -->
@@ -2294,7 +2338,7 @@ export const AIDietPlanGenerator = ({ clients, editModeData, onClose }: Props) =
                 <div><span className="text-muted-foreground">Skin:</span> <span className="font-medium">{selectedClient.skin_type || 'Normal'}</span></div>
                 <div><span className="text-muted-foreground">Hair:</span> <span className="font-medium">{selectedClient.hair_type || 'Normal'}</span></div>
                 <div><span className="text-muted-foreground">Diet:</span> <span className="font-medium capitalize">{selectedClient.diet_preference || 'Not set'}</span></div>
-                <div><span className="text-muted-foreground">Age:</span> <span className="font-medium">{calculateAge(selectedClient.date_of_birth)} years</span></div>
+                <div><span className="text-muted-foreground">Age:</span> <span className="font-medium">{clientAge(selectedClient) ?? '--'} years</span></div>
               </div>
               {selectedClient.health_conditions && selectedClient.health_conditions.length > 0 && (
                 <div className="flex flex-wrap gap-2">
@@ -2599,7 +2643,7 @@ export const AIDietPlanGenerator = ({ clients, editModeData, onClose }: Props) =
                 </div>
                 <div>
                   <span className="font-medium text-gray-600">Age:</span>
-                  <p className="text-gray-900">{calculateAge(selectedClient.date_of_birth)} years</p>
+                  <p className="text-gray-900">{clientAge(selectedClient) ?? '--'} years</p>
                 </div>
                 <div>
                   <span className="font-medium text-gray-600">Gender:</span>
@@ -3039,9 +3083,57 @@ export const AIDietPlanGenerator = ({ clients, editModeData, onClose }: Props) =
                                       className="cursor-pointer hover:text-primary hover:bg-muted/30 px-1 py-0.5 rounded transition-colors"
                                       onClick={() => startEditCell(mealTimeIdx, dayIdx, 'foodPlan')}
                                     >
+                                      {(meal.moreOptions?.length ?? 0) > 0 && <span className="font-semibold text-primary text-xs">Option 1: </span>}
                                       {meal.foodPlan || '-'} <Pencil className="h-2.5 w-2.5 inline ml-0.5 text-muted-foreground" />
                                     </div>
                                   )}
+
+                                  {/* Extra main-meal options — each prints as its own row */}
+                                  {[...(meal.moreOptions ?? []), ...(editingCell?.field === 'option' && editingCell.mealTimeIdx === mealTimeIdx && editingCell.dayIdx === dayIdx && (editingCell.optionIdx ?? 0) >= (meal.moreOptions?.length ?? 0) ? [''] : [])].map((opt, oi) => {
+                                    const isEditingOption = editingCell?.field === 'option' && editingCell.mealTimeIdx === mealTimeIdx && editingCell.dayIdx === dayIdx && editingCell.optionIdx === oi;
+                                    return isEditingOption ? (
+                                      <div key={oi} className="flex flex-col gap-1">
+                                        <span className="font-semibold text-primary text-xs">Option {oi + 2}</span>
+                                        <Input
+                                          value={editValue}
+                                          onChange={e => setEditValue(e.target.value)}
+                                          onKeyDown={e => { if (e.key === 'Enter') saveEditCell(); if (e.key === 'Escape') setEditingCell(null); }}
+                                          className="text-sm h-9 px-3 py-2 min-w-[300px]"
+                                          placeholder="e.g., Vegetable upma + 1 boiled egg"
+                                          autoFocus
+                                        />
+                                        <div className="flex gap-1">
+                                          <Button size="sm" variant="ghost" className="h-7 px-2 shrink-0" onClick={saveEditCell}><Check className="h-3 w-3 text-green-600" /></Button>
+                                          <Button size="sm" variant="ghost" className="h-7 px-2 shrink-0" onClick={() => setEditingCell(null)}><X className="h-3 w-3" /></Button>
+                                        </div>
+                                      </div>
+                                    ) : (
+                                      <div key={oi} className="flex items-start gap-1 group/opt border-t pt-1">
+                                        <div
+                                          className="flex-1 cursor-pointer hover:text-primary hover:bg-muted/30 px-1 py-0.5 rounded transition-colors"
+                                          onClick={() => startEditCell(mealTimeIdx, dayIdx, 'option', oi)}
+                                        >
+                                          <span className="font-semibold text-primary text-xs">Option {oi + 2}: </span>
+                                          {opt} <Pencil className="h-2.5 w-2.5 inline ml-0.5 text-muted-foreground" />
+                                        </div>
+                                        <button
+                                          type="button"
+                                          title="Remove this option"
+                                          onClick={() => removeMealOption(mealTimeIdx, dayIdx, oi)}
+                                          className="text-muted-foreground hover:text-destructive opacity-0 group-hover/opt:opacity-100 transition-opacity p-0.5"
+                                        >
+                                          <X className="h-3 w-3" />
+                                        </button>
+                                      </div>
+                                    );
+                                  })}
+                                  <button
+                                    type="button"
+                                    onClick={() => addMealOption(mealTimeIdx, dayIdx)}
+                                    className="text-[11px] text-primary hover:underline px-1 flex items-center gap-0.5"
+                                  >
+                                    <Plus className="h-3 w-3" /> Add option
+                                  </button>
                                   
                                   {isEditingAlternative ? (
                                     <div className="flex flex-col gap-1">

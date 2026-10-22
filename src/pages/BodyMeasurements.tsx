@@ -3,6 +3,7 @@ import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { DataTable } from '@/components/dashboard/DataTable';
 import { StatCard } from '@/components/dashboard/StatCard';
 import { BodyMeasurementFormDialog } from '@/components/body-measurements/BodyMeasurementFormDialog';
+import { InchLossCell, formatInchLoss } from '@/components/body-measurements/InchLoss';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -119,6 +120,11 @@ const BodyMeasurements = () => {
     { key: 'waist', header: 'Waist', render: (item: BodyMeasurementWithClientName) => formatValue(item.waist) },
     { key: 'hip', header: 'Hip', render: (item: BodyMeasurementWithClientName) => formatValue(item.hip) },
     {
+      key: 'inch_loss',
+      header: 'Inch Loss',
+      render: (item: BodyMeasurementWithClientName) => <InchLossCell total={item.inch_loss_total} change={item.inch_loss_change} />,
+    },
+    {
       key: 'notes',
       header: 'Notes',
       render: (item: BodyMeasurementWithClientName) => item.notes ? (
@@ -176,10 +182,16 @@ const BodyMeasurements = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4 mb-6">
         <StatCard title="Latest Weight" value={formatValue(latest?.weight, ' kg')} subtitle={latest?.client_name || 'No client'} change={formatDelta(latest?.weight, previous?.weight, ' kg') || undefined} icon={<Scale className="h-5 w-5" />} />
         <StatCard title="Latest BMI" value={formatValue(latest?.bmi)} subtitle="Compared with previous entry" change={formatDelta(latest?.bmi, previous?.bmi) || undefined} icon={<TrendingUp className="h-5 w-5" />} />
         <StatCard title="Waist" value={formatValue(latest?.waist)} subtitle="Latest recorded value" change={formatDelta(latest?.waist, previous?.waist) || undefined} icon={<Ruler className="h-5 w-5" />} />
+        <StatCard
+          title="Total Inch Loss"
+          value={formatInchLoss(latest?.inch_loss_total)}
+          subtitle={latest?.inch_loss_total == null ? 'Needs 2+ entries for a client' : `Since first entry · ${latest.client_name}`}
+          icon={<Ruler className="h-5 w-5" />}
+        />
         <StatCard title="Entries" value={measurements.length} subtitle={latest ? `Last updated ${new Date(latest.measurement_date).toLocaleDateString('en-IN')}` : 'No measurements yet'} icon={<Activity className="h-5 w-5" />} />
       </div>
 

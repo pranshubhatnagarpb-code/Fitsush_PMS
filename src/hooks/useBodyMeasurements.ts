@@ -28,7 +28,49 @@ export interface BodyMeasurement {
 
 export interface BodyMeasurementWithClientName extends BodyMeasurement {
   client_name: string;
+  // Inches lost (positive) or gained (negative) across INCH_LOSS_FIELDS.
+  // null for a client's first entry, or when no field was recorded in both entries.
+  inch_loss_total: number | null; // vs. the client's first entry
+  inch_loss_change: number | null; // vs. the client's previous entry
 }
+
+// Tape measurements summed for inch loss.
+export const INCH_LOSS_FIELDS = ['neck', 'chest', 'shoulder', 'tummy', 'waist', 'hip', 'thigh', 'arm'] as const;
+
+// Sum of (earlier - later) over fields recorded in both entries, so a field
+// missing from either entry doesn't count as a loss or gain.
+export const calcInchLoss = (
+  earlier: Partial<BodyMeasurement> | undefined,
+  later: Partial<BodyMeasurement> | undefined,
+): number | null => {
+  if (!earlier || !later) return null;
+  let total = 0;
+  let compared = 0;
+  for (const field of INCH_LOSS_FIELDS) {
+    const a = earlier[field];
+    const b = later[field];
+    if (a === null || a === undefined || b === null || b === undefined) continue;
+    total += Number(a) - Number(b);
+    compared++;
+  }
+  return compared ? Math.round(total * 10) / 10 : null;
+};
+
+// Adds inch_loss_total / inch_loss_change to every row, per client, in date order.
+const withInchLoss = <T extends BodyMeasurement>(rows: T[]): Array<T & Pick<BodyMeasurementWithClientName, 'inch_loss_total' | 'inch_loss_change'>> => {
+  const byClient = new Map<string, T[]>();
+  rows.forEach((r) => byClient.set(r.client_id, [...(byClient.get(r.client_id) ?? []), r]));
+  const result = new Map<string, { inch_loss_total: number | null; inch_loss_change: number | null }>();
+  byClient.forEach((list) => {
+    const asc = [...list].sort((a, b) =>
+      a.measurement_date.localeCompare(b.measurement_date) || a.created_at.localeCompare(b.created_at));
+    asc.forEach((row, i) => result.set(row.id, {
+      inch_loss_total: i === 0 ? null : calcInchLoss(asc[0], row),
+      inch_loss_change: i === 0 ? null : calcInchLoss(asc[i - 1], row),
+    }));
+  });
+  return rows.map((r) => ({ ...r, ...result.get(r.id)! }));
+};
 
 export interface BodyMeasurementInput {
   client_id: string;
@@ -100,11 +142,11 @@ export const useBodyMeasurements = (clientId?: string) => {
 
       if (error) throw error;
 
-      return (data || []).map((item: any) => ({
+      return withInchLoss((data || []).map((item: any) => ({
         ...item,
         bmi: item.bmi ?? calcBmi(item.weight, item.clients?.height),
         client_name: item.clients?.name || 'Unknown',
-      })) as BodyMeasurementWithClientName[];
+      }))) as BodyMeasurementWithClientName[];
     },
     enabled: true,
   });

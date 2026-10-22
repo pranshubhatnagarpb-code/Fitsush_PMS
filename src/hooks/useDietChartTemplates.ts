@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 export interface TemplateMeal {
   time: string;
   meal: string;
+  mealOptions?: string[]; // main-meal options 2..N (from the AI generator's "Add option")
   alternatives: string;
   notes: string;
 }
