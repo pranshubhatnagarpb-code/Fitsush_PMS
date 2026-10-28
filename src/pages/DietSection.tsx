@@ -101,11 +101,11 @@ const DietSection = () => {
     mt.key ? dietOptions.filter((opt) => opt.meal_type === mt.key) : dietOptions;
 
   const addMealTime = () => {
-    setMealTimes([...mealTimes, { id: `custom-${Date.now()}`, label: '' }]);
+    setMealTimes((prev) => [...prev, { id: `custom-${Date.now()}`, label: '' }]);
   };
 
   const renameMealTime = (id: string, label: string) => {
-    setMealTimes(mealTimes.map((mt) => (mt.id === id ? { ...mt, label } : mt)));
+    setMealTimes((prev) => prev.map((mt) => (mt.id === id ? { ...mt, label } : mt)));
   };
 
   const moveMealTime = (index: number, direction: -1 | 1) => {
@@ -121,7 +121,7 @@ const DietSection = () => {
     const inUse = dayPlans.some((plan) => filledTexts(plan, mt.id).length > 0);
     if (inUse && !confirm(`Remove "${mt.label || 'this meal time'}"? Meals entered for it on every day will be removed too.`)) return;
     setMealTimes(mealTimes.filter((m) => m.id !== mt.id));
-    setDayPlans(dayPlans.map((plan) => {
+    setDayPlans((prev) => prev.map((plan) => {
       const { [mt.id]: _removed, ...rest } = plan.meals;
       return { ...plan, meals: rest };
     }));
@@ -129,27 +129,23 @@ const DietSection = () => {
 
   const addDayPlan = () => {
     // Start the new card on the first weekday no other card covers yet.
-    const used = new Set(dayPlans.flatMap((p) => p.days));
-    const next = WEEKDAYS.find((d) => !used.has(d));
-    setDayPlans([...dayPlans, newDayPlan(Date.now().toString(), next ? [next] : [])]);
+    setDayPlans((prev) => {
+      const used = new Set(prev.flatMap((p) => p.days));
+      const next = WEEKDAYS.find((d) => !used.has(d));
+      return [...prev, newDayPlan(Date.now().toString(), next ? [next] : [])];
+    });
   };
 
   const removeDayPlan = (id: string) => {
-    if (dayPlans.length > 1) {
-      setDayPlans(dayPlans.filter((plan) => plan.id !== id));
-    }
+    setDayPlans((prev) => (prev.length > 1 ? prev.filter((plan) => plan.id !== id) : prev));
   };
 
   const updateDayPlan = <K extends keyof DayPlan>(id: string, field: K, value: DayPlan[K]) => {
-    setDayPlans(
-      dayPlans.map((plan) =>
-        plan.id === id ? { ...plan, [field]: value } : plan
-      )
-    );
+    setDayPlans((prev) => prev.map((plan) => (plan.id === id ? { ...plan, [field]: value } : plan)));
   };
 
   const setOptions = (planId: string, mealTimeId: string, fn: (opts: MealValue[]) => MealValue[]) => {
-    setDayPlans(dayPlans.map((plan) =>
+    setDayPlans((prev) => prev.map((plan) =>
       plan.id === planId ? { ...plan, meals: { ...plan.meals, [mealTimeId]: fn(optionsOf(plan, mealTimeId)) } } : plan
     ));
   };
@@ -171,7 +167,7 @@ const DietSection = () => {
     }, 0);
 
   const toggleDay = (planId: string, day: string) => {
-    setDayPlans(dayPlans.map((plan) =>
+    setDayPlans((prev) => prev.map((plan) =>
       plan.id === planId
         ? { ...plan, days: plan.days.includes(day) ? plan.days.filter((d) => d !== day) : [...plan.days, day] }
         : plan
@@ -458,7 +454,7 @@ const DietSection = () => {
                     <button
                       type="button"
                       className="text-xs text-primary hover:underline"
-                      onClick={() => updateDayPlan(plan.id, 'days', plan.days.length === WEEKDAYS.length ? [] : [...WEEKDAYS])}
+                      onClick={() => setDayPlans((prev) => prev.map((p) => (p.id === plan.id ? { ...p, days: p.days.length === WEEKDAYS.length ? [] : [...WEEKDAYS] } : p)))}
                     >
                       {plan.days.length === WEEKDAYS.length ? 'Clear' : 'Select all'}
                     </button>

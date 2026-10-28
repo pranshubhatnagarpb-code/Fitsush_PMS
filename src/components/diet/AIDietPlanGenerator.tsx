@@ -1649,7 +1649,9 @@ export const AIDietPlanGenerator = ({ clients, editModeData, onClose }: Props) =
       </table>
     `).join('');
 
-    const pdfHeading = escapeHtml(`${generatedPlan.planName} - ${clientDetails.name}`);
+    // The chart's only title (same rule as the shared layout): custom title, else the AI's plan name.
+    const pdfTitle = customTitle.trim() || generatedPlan.planName || 'Diet Plan';
+    const pdfHeading = escapeHtml(pdfTitle);
 
     const content = `<!DOCTYPE html>
 <html>
@@ -1716,9 +1718,7 @@ export const AIDietPlanGenerator = ({ clients, editModeData, onClose }: Props) =
 <body>
   <div class="header">
     <img src="${logoDataUrl}" alt="Fitsush Logo" class="header-logo" />
-    <h1>${generatedPlan.planName}</h1>
-    <p>Customised diet plan for ${escapeHtml(clientDetails.name)}</p>
-    <p><span class="week-badge" style="margin-left:0">${getFullPlanName()}</span> ${getDateRange()}</p>
+    <h1>${escapeHtml(pdfTitle)}</h1>
   </div>
 
   <!-- Client KYC Details -->

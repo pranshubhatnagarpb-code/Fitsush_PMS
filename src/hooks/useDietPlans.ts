@@ -4,6 +4,11 @@ import { toast } from 'sonner';
 import type { Json } from '@/integrations/supabase/types';
 import type { PlanKyc, RecipeEdits } from '@/lib/dietPlanHtml';
 
+const OPTIONAL_PLAN_COLUMNS = ['kyc', 'recipe_edits', 'supplements'] as const;
+const OPTIONAL_PLAN_COLUMN_LABELS: Record<string, string> = {
+  kyc: 'the Client Details (KYC)', recipe_edits: 'the recipe edits', supplements: 'the supplements',
+};
+
 const hasRecipeEdits = (e?: RecipeEdits) =>
   !!e && (Object.keys(e.edited ?? {}).length > 0 || (e.removed?.length ?? 0) > 0 || (e.added?.length ?? 0) > 0);
 
@@ -46,25 +51,39 @@ export const useCreateDietPlan = () => {
   
   return useMutation({
     mutationFn: async (input: CreateDietPlanInput) => {
-      const { data: plan, error: planError } = await supabase
-        .from('diet_plans')
-        .insert({
-          client_id: input.client_id,
-          plan_name: input.plan_name,
-          instructions: input.instructions,
-          // Only sent when there are supplements, so plans without any still save
-          // before _db/diet-plans-supplements-column.sql has been run.
-          ...(input.supplements?.length ? { supplements: input.supplements as unknown as Json } : {}),
-          // Same for recipe edits (_db/diet-plans-recipe-edits-column.sql).
-          ...(hasRecipeEdits(input.recipe_edits) ? { recipe_edits: input.recipe_edits as unknown as Json } : {}),
-          // Client Details box (_db/diet-plans-kyc-column.sql).
-          ...(input.kyc ? { kyc: input.kyc as unknown as Json } : {}),
-          status: 'active',
-        })
-        .select()
-        .single();
-      
+      const row: Record<string, unknown> = {
+        client_id: input.client_id,
+        plan_name: input.plan_name,
+        instructions: input.instructions,
+        // Optional columns are only sent when used, each added by its own SQL file:
+        // supplements (_db/diet-plans-supplements-column.sql),
+        // recipe_edits (_db/diet-plans-recipe-edits-column.sql), kyc (_db/diet-plans-kyc-column.sql).
+        ...(input.supplements?.length ? { supplements: input.supplements as unknown as Json } : {}),
+        ...(hasRecipeEdits(input.recipe_edits) ? { recipe_edits: input.recipe_edits as unknown as Json } : {}),
+        ...(input.kyc ? { kyc: input.kyc as unknown as Json } : {}),
+        status: 'active',
+      };
+      const insertPlan = () => supabase.from('diet_plans').insert(row as any).select().single();
+
+      // If one of those columns hasn't been added to the database yet, save the
+      // plan without it rather than failing, and say what was left out.
+      let { data: plan, error: planError } = await insertPlan();
+      const skipped: string[] = [];
+      for (let tries = 0; planError && tries < OPTIONAL_PLAN_COLUMNS.length; tries++) {
+        const missing = OPTIONAL_PLAN_COLUMNS.find((c) => c in row && planError!.message?.includes(`'${c}'`));
+        if (!missing) break;
+        delete row[missing];
+        skipped.push(missing);
+        ({ data: plan, error: planError } = await insertPlan());
+      }
+
       if (planError) throw planError;
+      if (skipped.length) {
+        toast.warning(`Plan saved without ${skipped.map((c) => OPTIONAL_PLAN_COLUMN_LABELS[c]).join(' and ')}`, {
+          description: `The database is missing diet_plans.${skipped.join(', diet_plans.')}. Run ${skipped.map((c) => `_db/diet-plans-${c.replace('_', '-')}-column.sql`).join(' and ')} in the Supabase SQL editor.`,
+          duration: 12000,
+        });
+      }
 
       const dayEntries = input.days.map((day, index) => ({
         diet_plan_id: plan.id,
