@@ -14,6 +14,23 @@ interface Body {
   phone?: string | null;
 }
 
+const json = (body: unknown, status = 200) =>
+  new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+
+// Last 10 digits, so "7200223456", "+917200223456" and "917200223456" compare equal.
+const phoneKey = (p: string | null | undefined) => (p ?? "").replace(/\D/g, "").slice(-10);
+
+// Every auth user (listUsers is paged).
+async function listAllUsers(admin: any) {
+  const users: any[] = [];
+  for (let page = 1; ; page++) {
+    const { data, error } = await admin.auth.admin.listUsers({ page, perPage: 1000 });
+    if (error) throw error;
+    users.push(...(data?.users ?? []));
+    if ((data?.users?.length ?? 0) < 1000) return users;
+  }
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -89,10 +106,10 @@ serve(async (req) => {
       if (phone) updates.phone = phone;
       const { error: updErr } = await admin.auth.admin.updateUserById(authUserId, updates);
       if (updErr) {
-        return new Response(JSON.stringify({ error: `Failed to update auth user: ${updErr.message}` }), {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+        return json({
+          error: `Failed to update this client's login to ${[email, phone].filter(Boolean).join(" / ")}: ${updErr.message}. ` +
+            `Another portal login probably already uses that email or phone.`,
+        }, 400);
       }
       // Re-activate link
       await admin
@@ -100,20 +117,41 @@ serve(async (req) => {
         .update({ is_active: true })
         .eq("id", existingLink!.id);
     } else {
-      // Try to find any existing auth user with same email
-      let foundUserId: string | null = null;
-      if (email) {
-        const { data: list } = await admin.auth.admin.listUsers({ page: 1, perPage: 200 });
-        const match = list?.users?.find(
-          (u) => u.email?.toLowerCase() === email
-        );
-        if (match) foundUserId = match.id;
+      // Reuse an existing auth user with this email or phone, unless it's
+      // already the login of a different client: one login can only belong
+      // to one client (client_portal_users.user_id is unique), and reusing it
+      // would also reset that other client's password.
+      const users = await listAllUsers(admin);
+      const match = users.find(
+        (u) => (email && u.email?.toLowerCase() === email) || (phone && phoneKey(u.phone) === phoneKey(phone)),
+      );
+      let foundUserId: string | null = match?.id ?? null;
+
+      if (match) {
+        const { data: otherLink } = await admin
+          .from("client_portal_users")
+          .select("client_id, clients(name)")
+          .eq("user_id", match.id)
+          .maybeSingle();
+        if (otherLink && otherLink.client_id !== client_id) {
+          const otherName = (otherLink as any).clients?.name ?? "another client";
+          const clash = email && match.email?.toLowerCase() === email ? `Email ${email}` : `Phone ${phone}`;
+          return json({
+            error:
+              `${clash} is already the portal login of ${otherName}. ` +
+              `If that's not ${otherName}'s own email/phone, fix it on ${otherName}'s profile and enable portal access ` +
+              `for ${otherName} again (that moves their login to the new details), then try again here. ` +
+              `Otherwise give this client a different email or phone.`,
+          }, 409);
+        }
       }
 
       if (foundUserId) {
         const updates: any = { password };
+        if (email) updates.email = email;
         if (phone) updates.phone = phone;
-        await admin.auth.admin.updateUserById(foundUserId, updates);
+        const { error: updErr } = await admin.auth.admin.updateUserById(foundUserId, updates);
+        if (updErr) return json({ error: `Failed to update auth user: ${updErr.message}` }, 400);
         authUserId = foundUserId;
       } else {
         // Create a new auth user
@@ -126,10 +164,7 @@ serve(async (req) => {
           user_metadata: { client_id, name: client.name, role: "portal_client" },
         });
         if (createErr || !created.user) {
-          return new Response(
-            JSON.stringify({ error: `Failed to create auth user: ${createErr?.message ?? "unknown"}` }),
-            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-          );
+          return json({ error: `Failed to create auth user: ${createErr?.message ?? "unknown"}` }, 400);
         }
         authUserId = created.user.id;
       }

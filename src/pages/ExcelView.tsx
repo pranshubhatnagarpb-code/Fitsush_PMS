@@ -32,7 +32,8 @@ import {
   useDeleteClientTrackerEntry,
   useUpdateClientTrackerEntry,
 } from '@/hooks/useClientTracker';
-import { Home, ChevronRight, ChevronLeft, Plus, Pencil, Trash2, Table2, Search } from 'lucide-react';
+import { Home, ChevronRight, ChevronLeft, Plus, Pencil, Trash2, Table2, Search, FileUp } from 'lucide-react';
+import { TrackerImportDialog } from '@/components/excel-view/TrackerImportDialog';
 import { toast } from 'sonner';
 
 type FormValues = Record<TrackerColumnKey, string>;
@@ -51,6 +52,7 @@ const ExcelView = () => {
   const [editing, setEditing] = useState<ClientTrackerEntry | null>(null);
   const [form, setForm] = useState<FormValues>(emptyForm);
   const [deleteTarget, setDeleteTarget] = useState<ClientTrackerEntry | null>(null);
+  const [importOpen, setImportOpen] = useState(false);
 
   const { data: entries = [], isLoading, error } = useClientTracker(month);
   const createEntry = useCreateClientTrackerEntry();
@@ -163,9 +165,14 @@ const ExcelView = () => {
             <p className="text-sm text-muted-foreground">Monthly client tracker — payments, sessions, leads, drop-outs and more.</p>
           </div>
         </div>
-        <Button onClick={openAdd}>
-          <Plus className="h-4 w-4 mr-1.5" /> Add Entry
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setImportOpen(true)}>
+            <FileUp className="h-4 w-4 mr-1.5" /> Import from Excel
+          </Button>
+          <Button onClick={openAdd}>
+            <Plus className="h-4 w-4 mr-1.5" /> Add Entry
+          </Button>
+        </div>
       </div>
 
       <div className="flex flex-wrap items-center gap-3 mb-4">
@@ -230,6 +237,8 @@ const ExcelView = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <TrackerImportDialog open={importOpen} onOpenChange={setImportOpen} onImported={setMonth} />
 
       <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
         <AlertDialogContent>

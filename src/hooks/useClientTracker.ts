@@ -88,3 +88,24 @@ export const useDeleteClientTrackerEntry = () => {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['client-tracker'] }),
   });
 };
+
+// Excel import (lib/clientTrackerImport.ts). Rows carry fixed ids (tab + sheet
+// row), so `skip` leaves rows already in the table alone and only adds new
+// ones; `update` also overwrites existing rows with the sheet's values.
+export const useImportClientTracker = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ rows, mode }: { rows: Array<Record<string, string>>; mode: 'skip' | 'update' }) => {
+      let written = 0;
+      for (let i = 0; i < rows.length; i += 500) {
+        const { data, error } = await clientTrackerTable()
+          .upsert(rows.slice(i, i + 500), { onConflict: 'id', ignoreDuplicates: mode === 'skip' })
+          .select('id');
+        if (error) throw error;
+        written += data?.length ?? 0;
+      }
+      return { written, total: rows.length };
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['client-tracker'] }),
+  });
+};
