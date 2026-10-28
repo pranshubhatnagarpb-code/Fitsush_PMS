@@ -14,7 +14,7 @@ import {
 
 // Layout lives in dietPlanHtml.ts (shared byte-for-byte with the client PWA);
 // this file only loads the data it needs and prints / renders it.
-export { dayMealText, dayMeals, planMealColumns, dayMealOptionsFor, countPlanDays, planSupplements, buildPlanHtml } from '@/lib/dietPlanHtml';
+export { dayMealText, dayMeals, planMealColumns, dayMealOptionsFor, countPlanDays, planSupplements, buildPlanHtml, applyRecipeEdits, type RecipeEdits, type RecipeRow } from '@/lib/dietPlanHtml';
 
 const RECIPE_COLUMNS = 'Meal_name, Ingredients, Instructions, Remarks';
 
@@ -33,7 +33,7 @@ async function fetchAllRows<T>(table: string, columns: string): Promise<T[]> {
 }
 
 // AI plans: match on names only (small download), then fetch the full recipes that matched.
-async function fetchRecipesForAIPlan(aiData: any): Promise<RecipeRow[]> {
+export async function fetchRecipesForAIPlan(aiData: any): Promise<RecipeRow[]> {
   const candidates = aiRecipeCandidates(aiData);
   if (candidates.length === 0) return [];
   const names = await fetchAllRows<{ Meal_name: string }>('meal_recipes', 'Meal_name');
@@ -69,11 +69,19 @@ async function loadLogoDataUrl(): Promise<string> {
   } catch { return ''; }
 }
 
+// Recipes matched to a plan's meals, before the plan's recipe edits are applied
+// (buildPlanHtml applies those). Used by the planners' recipe editors.
+export async function loadMatchedRecipes(plan: any): Promise<RecipeRow[]> {
+  return plan.is_ai_generated && plan.ai_plan_data
+    ? fetchRecipesForAIPlan(plan.ai_plan_data)
+    : fetchRecipesForManualPlan(plan.diet_plan_days);
+}
+
 // Full chart HTML for a plan (needs plan.clients, and plan.diet_plan_days for manual plans).
 export async function loadPlanHtml(plan: any): Promise<string> {
   const isAI = plan.is_ai_generated && plan.ai_plan_data;
   const [recipes, affiliateProducts, logoDataUrl] = await Promise.all([
-    isAI ? fetchRecipesForAIPlan(plan.ai_plan_data) : fetchRecipesForManualPlan(plan.diet_plan_days),
+    loadMatchedRecipes(plan),
     isAI ? fetchAffiliateProductsForPlan(plan.ai_plan_data) : Promise.resolve([]),
     loadLogoDataUrl(),
   ]);

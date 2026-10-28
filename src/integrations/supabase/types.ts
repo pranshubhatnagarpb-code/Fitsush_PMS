@@ -1035,6 +1035,8 @@ export type Database = {
           pdf_uploaded_at: string | null
           plan_name: string
           published_at: string | null
+          recipe_edits: Json | null
+          kyc: Json | null
           start_date: string | null
           status: string
           supplements: Json
@@ -1056,6 +1058,8 @@ export type Database = {
           pdf_uploaded_at?: string | null
           plan_name: string
           published_at?: string | null
+          recipe_edits?: Json | null
+          kyc?: Json | null
           start_date?: string | null
           status?: string
           supplements?: Json
@@ -1077,6 +1081,8 @@ export type Database = {
           pdf_uploaded_at?: string | null
           plan_name?: string
           published_at?: string | null
+          recipe_edits?: Json | null
+          kyc?: Json | null
           start_date?: string | null
           status?: string
           supplements?: Json

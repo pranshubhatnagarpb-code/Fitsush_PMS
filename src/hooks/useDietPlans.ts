@@ -2,6 +2,10 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import type { Json } from '@/integrations/supabase/types';
+import type { PlanKyc, RecipeEdits } from '@/lib/dietPlanHtml';
+
+const hasRecipeEdits = (e?: RecipeEdits) =>
+  !!e && (Object.keys(e.edited ?? {}).length > 0 || (e.removed?.length ?? 0) > 0 || (e.added?.length ?? 0) > 0);
 
 export interface DayMealInput {
   label: string;
@@ -32,6 +36,8 @@ interface CreateDietPlanInput {
   plan_name: string;
   instructions: string;
   supplements?: Array<{ time: string; supplement: string; notes: string }>;
+  recipe_edits?: RecipeEdits;
+  kyc?: PlanKyc;
   days: DayPlanInput[];
 }
 
@@ -49,6 +55,10 @@ export const useCreateDietPlan = () => {
           // Only sent when there are supplements, so plans without any still save
           // before _db/diet-plans-supplements-column.sql has been run.
           ...(input.supplements?.length ? { supplements: input.supplements as unknown as Json } : {}),
+          // Same for recipe edits (_db/diet-plans-recipe-edits-column.sql).
+          ...(hasRecipeEdits(input.recipe_edits) ? { recipe_edits: input.recipe_edits as unknown as Json } : {}),
+          // Client Details box (_db/diet-plans-kyc-column.sql).
+          ...(input.kyc ? { kyc: input.kyc as unknown as Json } : {}),
           status: 'active',
         })
         .select()

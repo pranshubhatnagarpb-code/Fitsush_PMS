@@ -16,7 +16,10 @@ import { toast } from 'sonner';
 import { AIDietPlanGenerator } from '@/components/diet/AIDietPlanGenerator';
 import SavedDietPlans from '@/components/diet/SavedDietPlans';
 import { MealPicker, MealValue, emptyMeal } from '@/components/diet/MealPicker';
-import { openDietPlanForPrint } from '@/lib/dietPlanPdf';
+import { openDietPlanForPrint, type RecipeEdits } from '@/lib/dietPlanPdf';
+import { PlanRecipesEditor } from '@/components/diet/PlanRecipesEditor';
+import { PlanKycEditor } from '@/components/diet/PlanKycEditor';
+import type { PlanKyc } from '@/lib/dietPlanHtml';
 
 type StandardMealKey = 'breakfast' | 'lunch' | 'snacks' | 'dinner';
 const STANDARD_MEAL_KEYS: StandardMealKey[] = ['breakfast', 'lunch', 'snacks', 'dinner'];
@@ -86,6 +89,8 @@ const DietSection = () => {
       .filter((s) => s.supplement);
   const [mealTimes, setMealTimes] = useState<MealTime[]>(defaultMealTimes);
   const [dayPlans, setDayPlans] = useState<DayPlan[]>([newDayPlan('1')]);
+  const [recipeEdits, setRecipeEdits] = useState<RecipeEdits>({});
+  const [kyc, setKyc] = useState<PlanKyc>();
 
   const { data: dietOptions = [], isLoading: optionsLoading } = useDietOptions();
   const { data: clients = [], isLoading: clientsLoading } = useActiveClients();
@@ -244,6 +249,8 @@ const DietSection = () => {
       plan_name: planName.trim(),
       instructions: generalInstructions,
       supplements: filledSupplements(),
+      recipe_edits: recipeEdits,
+      kyc,
       days,
     });
 
@@ -251,6 +258,8 @@ const DietSection = () => {
     setPlanName('');
     setGeneralInstructions('');
     setSupplements([]);
+    setRecipeEdits({});
+    setKyc(undefined); // re-filled from the client's latest data
     setDayPlans([newDayPlan('1')]);
   };
 
@@ -261,6 +270,8 @@ const DietSection = () => {
       plan_name: planName.trim(),
       instructions: generalInstructions,
       supplements: filledSupplements(),
+      recipe_edits: recipeEdits,
+      kyc,
       is_ai_generated: false,
       clients: clients.find((c) => c.id === selectedClient),
       diet_plan_days: buildDays(),
@@ -375,6 +386,8 @@ const DietSection = () => {
               </div>
             </div>
           </Card>
+
+          <PlanKycEditor client={clients.find((c) => c.id === selectedClient)} kyc={kyc} onChange={setKyc} />
 
           {/* Meal Times */}
           <Card className="p-6 mb-6 shadow-card">
@@ -576,6 +589,8 @@ const DietSection = () => {
               </div>
             )}
           </Card>
+
+          <PlanRecipesEditor plan={{ is_ai_generated: false, diet_plan_days: buildDays() }} edits={recipeEdits} onChange={setRecipeEdits} />
         </TabsContent>
 
         <TabsContent value="saved">
