@@ -46,6 +46,49 @@ interface CreateDietPlanInput {
   days: DayPlanInput[];
 }
 
+// Runs a diet_plans insert/update. If one of the optional columns hasn't been
+// added to the database yet, retries without it rather than failing, and says
+// what was left out (only for columns that actually had something in them).
+async function writePlanRow(row: Record<string, unknown>, write: (row: Record<string, unknown>) => PromiseLike<{ data: any; error: any }>) {
+  let { data, error } = await write(row);
+  const skipped: string[] = [];
+  for (let tries = 0; error && tries < OPTIONAL_PLAN_COLUMNS.length; tries++) {
+    const missing = OPTIONAL_PLAN_COLUMNS.find((c) => c in row && error!.message?.includes(`'${c}'`));
+    if (!missing) break;
+    const value = row[missing];
+    delete row[missing];
+    if (missing === 'recipe_edits' ? hasRecipeEdits(value as RecipeEdits) : Array.isArray(value) ? value.length > 0 : !!value) skipped.push(missing);
+    ({ data, error } = await write(row));
+  }
+
+  if (error) throw error;
+  if (skipped.length) {
+    toast.warning(`Plan saved without ${skipped.map((c) => OPTIONAL_PLAN_COLUMN_LABELS[c]).join(' and ')}`, {
+      description: `The database is missing diet_plans.${skipped.join(', diet_plans.')}. Run ${skipped.map((c) => `_db/diet-plans-${c.replace('_', '-')}-column.sql`).join(' and ')} in the Supabase SQL editor.`,
+      duration: 12000,
+    });
+  }
+  return data;
+}
+
+const dayRows = (planId: string, days: DayPlanInput[]) =>
+  days.map((day, index) => ({
+    diet_plan_id: planId,
+    day_label: day.day_label,
+    meals: day.meals as unknown as Json,
+    breakfast_option_id: day.breakfast_option_id || null,
+    lunch_option_id: day.lunch_option_id || null,
+    snacks_option_id: day.snacks_option_id || null,
+    dinner_option_id: day.dinner_option_id || null,
+    breakfast_text: day.breakfast_text,
+    lunch_text: day.lunch_text,
+    snacks_text: day.snacks_text,
+    dinner_text: day.dinner_text,
+    total_calories: day.total_calories,
+    notes: day.notes,
+    sort_order: index,
+  }));
+
 export const useCreateDietPlan = () => {
   const queryClient = useQueryClient();
   
@@ -63,48 +106,11 @@ export const useCreateDietPlan = () => {
         ...(input.kyc ? { kyc: input.kyc as unknown as Json } : {}),
         status: 'active',
       };
-      const insertPlan = () => supabase.from('diet_plans').insert(row as any).select().single();
-
-      // If one of those columns hasn't been added to the database yet, save the
-      // plan without it rather than failing, and say what was left out.
-      let { data: plan, error: planError } = await insertPlan();
-      const skipped: string[] = [];
-      for (let tries = 0; planError && tries < OPTIONAL_PLAN_COLUMNS.length; tries++) {
-        const missing = OPTIONAL_PLAN_COLUMNS.find((c) => c in row && planError!.message?.includes(`'${c}'`));
-        if (!missing) break;
-        delete row[missing];
-        skipped.push(missing);
-        ({ data: plan, error: planError } = await insertPlan());
-      }
-
-      if (planError) throw planError;
-      if (skipped.length) {
-        toast.warning(`Plan saved without ${skipped.map((c) => OPTIONAL_PLAN_COLUMN_LABELS[c]).join(' and ')}`, {
-          description: `The database is missing diet_plans.${skipped.join(', diet_plans.')}. Run ${skipped.map((c) => `_db/diet-plans-${c.replace('_', '-')}-column.sql`).join(' and ')} in the Supabase SQL editor.`,
-          duration: 12000,
-        });
-      }
-
-      const dayEntries = input.days.map((day, index) => ({
-        diet_plan_id: plan.id,
-        day_label: day.day_label,
-        meals: day.meals as unknown as Json,
-        breakfast_option_id: day.breakfast_option_id || null,
-        lunch_option_id: day.lunch_option_id || null,
-        snacks_option_id: day.snacks_option_id || null,
-        dinner_option_id: day.dinner_option_id || null,
-        breakfast_text: day.breakfast_text,
-        lunch_text: day.lunch_text,
-        snacks_text: day.snacks_text,
-        dinner_text: day.dinner_text,
-        total_calories: day.total_calories,
-        notes: day.notes,
-        sort_order: index,
-      }));
+      const plan = await writePlanRow(row, (r) => supabase.from('diet_plans').insert(r as any).select().single());
 
       const { error: daysError } = await supabase
         .from('diet_plan_days')
-        .insert(dayEntries);
+        .insert(dayRows(plan.id, input.days));
       
       if (daysError) throw daysError;
 
@@ -117,6 +123,49 @@ export const useCreateDietPlan = () => {
     },
     onError: (error) => {
       toast.error('Failed to create diet plan', { description: error.message });
+    },
+  });
+};
+
+// Saves a manual plan over an existing one (same id, status and publish state).
+export const useUpdateDietPlan = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ id, ...input }: CreateDietPlanInput & { id: string }) => {
+      // Optional columns are always sent here, so removing supplements/edits clears them.
+      const row: Record<string, unknown> = {
+        client_id: input.client_id,
+        plan_name: input.plan_name,
+        instructions: input.instructions,
+        supplements: (input.supplements ?? []) as unknown as Json,
+        recipe_edits: (input.recipe_edits ?? {}) as unknown as Json,
+        ...(input.kyc ? { kyc: input.kyc as unknown as Json } : {}),
+        updated_at: new Date().toISOString(),
+      };
+      const plan = await writePlanRow(row, (r) => supabase.from('diet_plans').update(r as any).eq('id', id).select().single());
+
+      // Add the new days before removing the old ones, so a failed insert never leaves the plan empty.
+      const { data: oldDays, error: oldError } = await supabase.from('diet_plan_days').select('id').eq('diet_plan_id', id);
+      if (oldError) throw oldError;
+
+      const { error: daysError } = await supabase.from('diet_plan_days').insert(dayRows(id, input.days));
+      if (daysError) throw daysError;
+
+      if (oldDays?.length) {
+        const { error: deleteError } = await supabase.from('diet_plan_days').delete().in('id', oldDays.map((d) => d.id));
+        if (deleteError) throw deleteError;
+      }
+
+      return plan;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['diet_plans'] });
+      queryClient.invalidateQueries({ queryKey: ['clients-with-diet-data'] });
+      toast.success('Diet plan updated');
+    },
+    onError: (error) => {
+      toast.error('Failed to update diet plan', { description: error.message });
     },
   });
 };

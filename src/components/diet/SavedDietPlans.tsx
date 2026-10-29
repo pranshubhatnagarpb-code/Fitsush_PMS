@@ -20,7 +20,12 @@ import { AIDietPlanGenerator } from './AIDietPlanGenerator';
 import { BRANDING } from '@/config/branding';
 import { mealFoodOptions } from '@/lib/mealOptions';
 
-const SavedDietPlans = () => {
+type Props = {
+  // Opens a manual (non-AI) plan in the manual planner: 'edit' saves over it, 'reuse' saves a new plan.
+  onOpenManualPlan?: (plan: any, mode: 'edit' | 'reuse') => void;
+};
+
+const SavedDietPlans = ({ onOpenManualPlan }: Props) => {
   const { data: plans = [], isLoading, refetch } = useSavedDietPlans();
   const deletePlan = useDeleteDietPlan();
   const publishPlan = usePublishDietPlan();
@@ -298,6 +303,28 @@ const SavedDietPlans = () => {
                         size="sm"
                         onClick={() => handleReusePlan(plan)}
                         title="Edit and reuse this plan"
+                      >
+                        <Copy className="h-4 w-4 mr-1" />
+                        Edit & Reuse
+                      </Button>
+                    </>
+                  )}
+                  {!plan.is_ai_generated && onOpenManualPlan && (
+                    <>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => onOpenManualPlan(plan, 'edit')}
+                        title="Edit and save this same plan"
+                      >
+                        <Edit className="h-4 w-4 mr-1" />
+                        Edit
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => onOpenManualPlan(plan, 'reuse')}
+                        title="Edit and save as a new plan"
                       >
                         <Copy className="h-4 w-4 mr-1" />
                         Edit & Reuse

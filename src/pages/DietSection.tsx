@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useDietChartTemplates, type TemplateSupplement } from '@/hooks/useDietChartTemplates';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card } from '@/components/ui/card';
@@ -8,10 +8,10 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Home, ChevronRight, Download, Mail, Plus, Trash2, ClipboardList, FilePlus, ArrowUp, ArrowDown, X } from 'lucide-react';
+import { Home, ChevronRight, Download, Mail, Plus, Trash2, ClipboardList, FilePlus, ArrowUp, ArrowDown, X, Pencil } from 'lucide-react';
 import { useDietOptions } from '@/hooks/useDietOptions';
 import { useActiveClients } from '@/hooks/useClients';
-import { useCreateDietPlan } from '@/hooks/useDietPlans';
+import { useCreateDietPlan, useUpdateDietPlan } from '@/hooks/useDietPlans';
 import { toast } from 'sonner';
 import { AIDietPlanGenerator } from '@/components/diet/AIDietPlanGenerator';
 import SavedDietPlans from '@/components/diet/SavedDietPlans';
@@ -69,6 +69,67 @@ const formatDays = (selected: string[]): string => {
   return parts.join(', ');
 };
 
+// Back from a saved day_label to weekdays: "Every day", "Monday – Friday",
+// "Monday, Wednesday", "Monday & Thursday", or older "Monday - Week 1".
+const parseDays = (label: string | null): string[] => {
+  if (!label) return [];
+  if (/every\s*day|daily/i.test(label)) return [...WEEKDAYS];
+  const found = new Set<number>();
+  label.split(/,|&|\band\b/i).forEach((part) => {
+    const idx = WEEKDAYS.map((d, i) => (new RegExp(`\\b${d}\\b`, 'i').test(part) ? i : -1)).filter((i) => i >= 0);
+    if (idx.length === 2 && /[–-]/.test(part)) {
+      const [a, b] = [Math.min(...idx), Math.max(...idx)];
+      for (let i = a; i <= b; i++) found.add(i);
+    } else idx.forEach((i) => found.add(i));
+  });
+  return WEEKDAYS.filter((_, i) => found.has(i));
+};
+
+// A saved manual plan → the planner's meal times and day cards.
+const planToForm = (plan: any): { mealTimes: MealTime[]; dayPlans: DayPlan[] } => {
+  const days = [...(plan.diet_plan_days ?? [])].sort((a: any, b: any) => (a.sort_order || 0) - (b.sort_order || 0));
+  // Rows saved before diet_plan_days.meals existed only have the four columns.
+  const rawMeals = (d: any): any[] =>
+    Array.isArray(d.meals) && d.meals.length
+      ? d.meals
+      : STANDARD_MEAL_KEYS.map((k) => ({
+          label: k[0].toUpperCase() + k.slice(1),
+          text: d[`${k}_text`] || d[`${k}_option`]?.name || null,
+          option_id: d[`${k}_option_id`] ?? null,
+        }));
+
+  const mealTimes: MealTime[] = [];
+  days.forEach((d) => rawMeals(d).forEach((m) => {
+    const label = String(m?.label ?? '').trim();
+    if (!label || mealTimes.some((mt) => mt.label.toLowerCase() === label.toLowerCase())) return;
+    const key = STANDARD_MEAL_KEYS.find((k) => k === label.toLowerCase() && !mealTimes.some((mt) => mt.key === k));
+    mealTimes.push({ id: key ?? `custom-${mealTimes.length}`, label, key });
+  }));
+
+  const dayPlans = days.map((d, i): DayPlan => {
+    const meals: Record<string, MealValue[]> = {};
+    rawMeals(d).forEach((m) => {
+      const mt = mealTimes.find((t) => t.label.toLowerCase() === String(m?.label ?? '').trim().toLowerCase());
+      if (!mt) return;
+      const texts: string[] = Array.isArray(m.options) && m.options.length ? m.options.map(String) : m.text ? [String(m.text)] : [];
+      // `recipes` isn't tied to an option: match by name first, then hand out the rest in order.
+      const recipes: string[] = Array.isArray(m.recipes) ? [...m.recipes] : [];
+      const values = texts.map((text, oi): MealValue => {
+        const ri = recipes.findIndex((r) => r.toLowerCase() === text.trim().toLowerCase());
+        return { text, optionId: oi === 0 ? m.option_id ?? null : null, recipe: ri >= 0 ? recipes.splice(ri, 1)[0] : null };
+      });
+      values.forEach((v) => { if (!v.recipe && recipes.length) v.recipe = recipes.shift()!; });
+      if (values.length) meals[mt.id] = values;
+    });
+    return { id: `loaded-${i}`, days: parseDays(d.day_label), meals, instructions: d.notes ?? '' };
+  });
+
+  return {
+    mealTimes: mealTimes.length ? mealTimes : defaultMealTimes(),
+    dayPlans: dayPlans.length ? dayPlans : [newDayPlan('1')],
+  };
+};
+
 const DietSection = () => {
   const [selectedClient, setSelectedClient] = useState('');
   const [planName, setPlanName] = useState('');
@@ -91,10 +152,15 @@ const DietSection = () => {
   const [dayPlans, setDayPlans] = useState<DayPlan[]>([newDayPlan('1')]);
   const [recipeEdits, setRecipeEdits] = useState<RecipeEdits>({});
   const [kyc, setKyc] = useState<PlanKyc>();
+  const [tab, setTab] = useState('create');
+  // Set while a saved plan is open via Saved Plans → Edit; saving then overwrites it.
+  const [editingPlan, setEditingPlan] = useState<{ id: string; name: string } | null>(null);
+  const plannerRef = useRef<HTMLDivElement>(null);
 
   const { data: dietOptions = [], isLoading: optionsLoading } = useDietOptions();
   const { data: clients = [], isLoading: clientsLoading } = useActiveClients();
   const createDietPlan = useCreateDietPlan();
+  const updateDietPlan = useUpdateDietPlan();
 
   // Default meal times list their own meal_type; added meal times can use any option.
   const optionsFor = (mt: MealTime) =>
@@ -235,28 +301,57 @@ const DietSection = () => {
       };
     });
 
-  const savePlan = async () => {
-    if (!validatePlan()) return;
-
-    const days = buildDays();
-
-    await createDietPlan.mutateAsync({
-      client_id: selectedClient,
-      plan_name: planName.trim(),
-      instructions: generalInstructions,
-      supplements: filledSupplements(),
-      recipe_edits: recipeEdits,
-      kyc,
-      days,
-    });
-
-    // Reset form (meal times are kept, so the next plan can reuse the same chart rows)
+  const resetForm = () => {
+    // Meal times are kept, so the next plan can reuse the same chart rows
     setPlanName('');
     setGeneralInstructions('');
     setSupplements([]);
     setRecipeEdits({});
     setKyc(undefined); // re-filled from the client's latest data
     setDayPlans([newDayPlan('1')]);
+    setEditingPlan(null);
+  };
+
+  const savePlan = async () => {
+    if (!validatePlan()) return;
+
+    const input = {
+      client_id: selectedClient,
+      plan_name: planName.trim(),
+      instructions: generalInstructions,
+      supplements: filledSupplements(),
+      recipe_edits: recipeEdits,
+      kyc,
+      days: buildDays(),
+    };
+
+    if (editingPlan) {
+      await updateDietPlan.mutateAsync({ id: editingPlan.id, ...input });
+      resetForm();
+      setTab('saved');
+      return;
+    }
+
+    await createDietPlan.mutateAsync(input);
+    resetForm();
+  };
+
+  // Saved Plans → Edit / Edit & Reuse on a manual plan: load it into the planner.
+  const openSavedPlan = (plan: any, mode: 'edit' | 'reuse') => {
+    const form = planToForm(plan);
+    setSelectedClient(plan.client_id ?? '');
+    setPlanName(plan.plan_name ?? '');
+    setGeneralInstructions(plan.instructions ?? '');
+    setSupplements(Array.isArray(plan.supplements) ? plan.supplements.map((s: any) => ({ time: s.time ?? '', supplement: s.supplement ?? '', notes: s.notes ?? '' })) : []);
+    setRecipeEdits(plan.recipe_edits ?? {});
+    // clientId stops the KYC card from re-filling over the saved values.
+    setKyc(plan.kyc ? { ...plan.kyc, clientId: plan.client_id } : undefined);
+    setMealTimes(form.mealTimes);
+    setDayPlans(form.dayPlans);
+    setEditingPlan(mode === 'edit' ? { id: plan.id, name: plan.plan_name } : null);
+    setTab('create');
+    setTimeout(() => plannerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
+    toast.success(mode === 'edit' ? `Editing "${plan.plan_name}"` : `Loaded "${plan.plan_name}" — saving creates a new plan`);
   };
 
   // Same layout as Saved Plans' download (and the PDF the client gets on publish).
@@ -312,7 +407,7 @@ const DietSection = () => {
         <h1 className="text-2xl font-bold text-foreground">Diet Section</h1>
       </div>
 
-      <Tabs defaultValue="create" className="space-y-6">
+      <Tabs value={tab} onValueChange={setTab} className="space-y-6">
         <TabsList className="grid w-full max-w-md grid-cols-2">
           <TabsTrigger value="create" className="flex items-center gap-2">
             <FilePlus className="h-4 w-4" /> Create Plan
@@ -332,13 +427,26 @@ const DietSection = () => {
               <Mail className="h-4 w-4 mr-2" />
               Email PDF
             </Button>
-            <Button onClick={savePlan} disabled={createDietPlan.isPending} className="gradient-primary text-primary-foreground">
-              {createDietPlan.isPending ? 'Saving...' : 'Save Plan'}
+            <Button onClick={savePlan} disabled={createDietPlan.isPending || updateDietPlan.isPending} className="gradient-primary text-primary-foreground">
+              {createDietPlan.isPending || updateDietPlan.isPending ? 'Saving...' : editingPlan ? 'Save Changes' : 'Save Plan'}
             </Button>
           </div>
 
           {/* AI Diet Plan Generator */}
           <AIDietPlanGenerator clients={clients} />
+
+          <div ref={plannerRef} className="scroll-mt-4" />
+          {editingPlan && (
+            <Card className="p-4 mb-4 border-primary bg-primary/5 flex items-center justify-between gap-3 flex-wrap">
+              <p className="text-sm flex items-center gap-2">
+                <Pencil className="h-4 w-4 text-primary" />
+                Editing saved plan <strong>{editingPlan.name}</strong>. Save Changes updates this plan; no new plan is created.
+              </p>
+              <Button variant="outline" size="sm" onClick={resetForm}>
+                <X className="h-4 w-4 mr-1" /> Cancel edit
+              </Button>
+            </Card>
+          )}
 
           {/* Client & Plan Info */}
           <Card className="p-6 mb-6 shadow-card">
@@ -590,7 +698,7 @@ const DietSection = () => {
         </TabsContent>
 
         <TabsContent value="saved">
-          <SavedDietPlans />
+          <SavedDietPlans onOpenManualPlan={openSavedPlan} />
         </TabsContent>
       </Tabs>
     </DashboardLayout>
