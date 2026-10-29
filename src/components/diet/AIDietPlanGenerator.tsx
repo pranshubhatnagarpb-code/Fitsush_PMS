@@ -110,7 +110,7 @@ interface DietPlan {
 
 interface Props {
   clients: Client[];
-  editModeData?: { id: string; data: DietPlan & { clientId?: string }; source: 'draft' | 'reuse' | 'template'; clientId?: string } | null;
+  editModeData?: { id: string; data: DietPlan & { clientId?: string }; source: 'draft' | 'reuse' | 'template' | 'edit'; clientId?: string } | null;
   onClose?: () => void;
 }
 
@@ -146,7 +146,7 @@ export const AIDietPlanGenerator = ({ clients, editModeData, onClose }: Props) =
   const [isEditMode, setIsEditMode] = useState(false);
   const [editingPlanId, setEditingPlanId] = useState<string | null>(null);
   const [showDraftOptions, setShowDraftOptions] = useState(false);
-  const [editSource, setEditSource] = useState<'draft' | 'reuse' | 'template' | 'new' | null>(null);
+  const [editSource, setEditSource] = useState<'draft' | 'reuse' | 'template' | 'edit' | 'new' | null>(null);
   const [originalPlanData, setOriginalPlanData] = useState<DietPlan | null>(null);
   const [startDate, setStartDate] = useState<Date | undefined>(new Date());
   const [showStartCalendar, setShowStartCalendar] = useState(false);
@@ -1380,6 +1380,48 @@ export const AIDietPlanGenerator = ({ clients, editModeData, onClose }: Props) =
     }
   };
 
+  // Save changes into the same saved plan (no new plan, name/status/number unchanged)
+  const saveChangesToPlan = async () => {
+    if (!generatedPlan || !editingPlanId) {
+      toast.error('Missing required data for saving');
+      return;
+    }
+
+    try {
+      // Use editable start date if provided, otherwise auto-detect
+      const finalStartDate = editableStartDate || getLowestDateFromPlan(generatedPlan) || startDate?.toISOString().split('T')[0] || generatedPlan.startDate;
+
+      const updatedPlanData = {
+        ...generatedPlan,
+        startDate: finalStartDate,
+        editableStartDate: editableStartDate,
+        editableWeekNumber: editableWeekNumber,
+        editableDayCount: editableDayCount,
+      };
+
+      const { error } = await supabase
+        .from('diet_plans')
+        .update({
+          instructions: generatedPlan.introMessage,
+          ai_plan_data: updatedPlanData as any,
+          updated_at: new Date().toISOString(),
+          start_date: finalStartDate,
+        })
+        .eq('id', editingPlanId);
+
+      if (error) {
+        console.error('Database update error:', error);
+        throw error;
+      }
+
+      toast.success('Plan updated!');
+      resetEditMode();
+    } catch (error: any) {
+      console.error('Error saving plan changes:', error);
+      toast.error('Failed to save changes', { description: error.message });
+    }
+  };
+
   // Meal time editing functions
   const startEditMealTime = (mealTimeIdx: number) => {
     const meal = generatedPlan?.dayGroups[0]?.meals[mealTimeIdx];
@@ -2477,6 +2519,11 @@ export const AIDietPlanGenerator = ({ clients, editModeData, onClose }: Props) =
                         Editing Draft
                       </Badge>
                     )}
+                    {editSource === 'edit' && (
+                      <Badge variant="outline" className="border-blue-500 text-blue-600">
+                        Editing Saved Plan
+                      </Badge>
+                    )}
                     {editSource === 'reuse' && (
                       <div className="flex items-center gap-2">
                         <Badge variant="outline" className="border-green-500 text-green-600">
@@ -3374,6 +3421,11 @@ export const AIDietPlanGenerator = ({ clients, editModeData, onClose }: Props) =
                         Approve as {getFullPlanName()}
                       </Button>
                     </>
+                  ) : editSource === 'edit' ? (
+                    <Button onClick={saveChangesToPlan} className="gradient-primary text-primary-foreground">
+                      <Save className="h-4 w-4 mr-2" />
+                      Save Changes
+                    </Button>
                   ) : editSource === 'reuse' ? (
                     <>
                       <Button onClick={saveReusedPlan} className="gradient-primary text-primary-foreground">

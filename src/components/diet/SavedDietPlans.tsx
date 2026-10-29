@@ -30,7 +30,7 @@ const SavedDietPlans = () => {
   const [selectedPlan, setSelectedPlan] = useState<any>(null);
   const [isReusing, setIsReusing] = useState<string | null>(null);
   const [showAIGenerator, setShowAIGenerator] = useState(false);
-  const [editPlanData, setEditPlanData] = useState<{ id: string; data: any; source: 'draft' | 'reuse'; clientId?: string } | null>(null);
+  const [editPlanData, setEditPlanData] = useState<{ id: string; data: any; source: 'draft' | 'reuse' | 'edit'; clientId?: string } | null>(null);
 
   
   // Calculate week number based on client's diet chart count
@@ -140,7 +140,7 @@ const SavedDietPlans = () => {
         ...plan.ai_plan_data,
         clientId: plan.client_id, // Add client ID to the plan data
       },
-      source: plan.status === 'draft' ? 'draft' : 'reuse',
+      source: plan.status === 'draft' ? 'draft' : 'edit',
       clientId: plan.client_id, // Add client ID at the top level
     });
     setShowAIGenerator(true);
@@ -284,17 +284,15 @@ const SavedDietPlans = () => {
                     </Button>
                   {plan.is_ai_generated && plan.ai_plan_data && (
                     <>
-                      {plan.status === 'draft' && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleEditPlan(plan)}
-                          title="Edit this draft"
-                        >
-                          <Edit className="h-4 w-4 mr-1" />
-                          Edit
-                        </Button>
-                      )}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleEditPlan(plan)}
+                        title={plan.status === 'draft' ? 'Edit this draft' : 'Edit and save this same plan'}
+                      >
+                        <Edit className="h-4 w-4 mr-1" />
+                        Edit
+                      </Button>
                       <Button
                         variant="outline"
                         size="sm"
@@ -369,6 +367,7 @@ const SavedDietPlans = () => {
             <DialogTitle>
               {editPlanData?.source === 'draft' ? 'Edit Draft' : 
                editPlanData?.source === 'reuse' ? 'Reuse & Edit Plan' : 
+               editPlanData?.source === 'edit' ? 'Edit Plan' : 
                'AI Diet Plan Generator'}
             </DialogTitle>
           </DialogHeader>
