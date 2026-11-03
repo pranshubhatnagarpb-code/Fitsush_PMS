@@ -236,7 +236,7 @@ export const BloodReportFormDialog = ({ open, onOpenChange, report, defaultClien
                         <Input
                           id={m.key}
                           type="number"
-                          step="0.01"
+                          step="any"
                           min="0"
                           value={values[m.key]}
                           onChange={(e) => setValues((prev) => ({ ...prev, [m.key]: e.target.value }))}
